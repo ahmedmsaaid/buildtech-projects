@@ -1,0 +1,165 @@
+---
+/**
+ * A clinic's public booking page: pick a day, a time and a service, then
+ * leave a name and mobile number. Works without JavaScript.
+ */
+import Base from '../../layouts/Base.astro';
+import { bookAppointment, getBookableDays, getSlots } from '../../lib/appointments';
+import { getClinicBySlug, getServices } from '../../lib/clinics';
+import { bookingLimiter } from '../../lib/rate-limit';
+import { formatDay, formatMinute, weekdayNames, weekdayOf } from '../../lib/time';
+import { egyptianMobile, text } from '../../lib/validate';
+
+const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
+if (!clinic) return new Response(null, { status: 404 });
+
+const [days, services] = await Promise.all([getBookableDays(clinic), getServices(clinic.id)]);
+
+const problems: string[] = [];
+let typed = { name: '', phone: '', note: '', serviceId: services[0]?.id ?? '', minute: -1 };
+let day = Astro.url.searchParams.get('date') ?? '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  day = text(form, 'day', 10);
+  typed = {
+    name: text(form, 'name', 80),
+    phone: text(form, 'phone', 20),
+    note: text(form, 'note', 300),
+    serviceId: text(form, 'service', 40),
+    minute: Number(text(form, 'minute', 5) || -1),
+  };
+
+  // Honeypot: people never see this field, so anything in it is a bot.
+  const isBot = text(form, 'website') !== '';
+  const mobile = egyptianMobile(typed.phone);
+
+  if (typed.name.length < 3) problems.push('اكتب اسمك ثلاثي أو ثنائي.');
+  if (!mobile) problems.push('رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01.');
+  if (typed.minute < 0) problems.push('اختار ساعة الميعاد.');
+  if (!isBot && bookingLimiter.isLimited(Astro.clientAddress)) problems.push('محاولات كتير في وقت قصير. جرّب تاني بعد شوية.');
+
+  if (problems.length === 0 && mobile && !isBot) {
+    const result = await bookAppointment(clinic, {
+      day,
+      minute: typed.minute,
+      serviceId: typed.serviceId,
+      patientName: typed.name,
+      patientPhone: mobile,
+      note: typed.note,
+      source: 'online',
+    });
+
+    if (result.ok) return Astro.redirect(`/${clinic.slug}/booked/${result.id}`);
+    problems.push(
+      result.reason === 'slot_taken'
+        ? 'الميعاد ده اتحجز حالاً. اختار ساعة تانية.'
+        : result.reason === 'unknown_service'
+          ? 'اختار نوع الزيارة.'
+          : 'الميعاد ده مش متاح. اختار يوم وساعة من المعروض.',
+    );
+  }
+}
+
+if (!days.includes(day)) day = days[0] ?? '';
+const slots = day ? await getSlots(clinic, day) : [];
+const hasFreeSlot = slots.some((slot) => slot.free);
+---
+
+<Base title={`احجز ميعادك · ${clinic.name}`} accent={clinic.accent}>
+  <main class="page">
+    <header class="clinic">
+      <h1>{clinic.name}</h1>
+      {clinic.specialty && <p>{clinic.specialty}</p>}
+      {clinic.doctor_name && <p>{clinic.doctor_name}</p>}
+      {clinic.address && <p>{clinic.address}</p>}
+      {clinic.phone && <p><a class="ltr" href={`tel:${clinic.phone}`}>{clinic.phone}</a></p>}
+    </header>
+
+    {
+      problems.length > 0 && (
+        <div class="notice notice--error" role="alert">
+          <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
+        </div>
+      )
+    }
+
+    {
+      days.length === 0 || services.length === 0 ? (
+        <p class="card">الحجز الأونلاين مش متاح دلوقتي. كلّم العيادة على التليفون.</p>
+      ) : (
+        <>
+          <section class="card" aria-labelledby="day-title">
+            <h2 id="day-title">1. اختار اليوم</h2>
+            <div class="choices">
+              {days.map((option) => (
+                <a class="choice" href={`?date=${option}#time-title`} aria-current={option === day ? 'true' : undefined}>
+                  {weekdayNames[weekdayOf(option)]}
+                  <small>{formatDay(option).replace(`${weekdayNames[weekdayOf(option)]} `, '')}</small>
+                </a>
+              ))}
+            </div>
+          </section>
+
+          <form class="card" method="post" action={`?date=${day}`}>
+            <input type="hidden" name="day" value={day} />
+
+            <fieldset>
+              <legend id="time-title">2. اختار الساعة ({formatDay(day)})</legend>
+              {hasFreeSlot ? (
+                <div class="choices">
+                  {slots.map((slot) => (
+                    <label class="choice">
+                      <input type="radio" name="minute" value={slot.minute} disabled={!slot.free} checked={slot.free && slot.minute === typed.minute} required />
+                      <span>{formatMinute(slot.minute)}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p class="muted">مفيش مواعيد فاضية في اليوم ده. اختار يوم تاني.</p>
+              )}
+            </fieldset>
+
+            <fieldset>
+              <legend>3. نوع الزيارة</legend>
+              <div class="choices">
+                {services.map((service) => (
+                  <label class="choice">
+                    <input type="radio" name="service" value={service.id} checked={service.id === typed.serviceId} required />
+                    <span>
+                      {service.name}
+                      {service.price > 0 && <small>{service.price} ج</small>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div class="field">
+              <label for="name">الاسم</label>
+              <input id="name" name="name" type="text" value={typed.name} autocomplete="name" required minlength="3" maxlength="80" />
+            </div>
+
+            <div class="field">
+              <label for="phone">رقم الموبايل</label>
+              <input id="phone" class="ltr" name="phone" type="tel" value={typed.phone} autocomplete="tel" inputmode="tel" placeholder="01xxxxxxxxx" required />
+              <p class="hint">العيادة هتفكّرك بالميعاد على الرقم ده.</p>
+            </div>
+
+            <div class="field">
+              <label for="note">ملاحظة للعيادة (اختياري)</label>
+              <textarea id="note" name="note" rows="2" maxlength="300">{typed.note}</textarea>
+            </div>
+
+            <div class="trap" aria-hidden="true">
+              <label for="website">سيب الخانة دي فاضية</label>
+              <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <button class="button button--primary" type="submit" disabled={!hasFreeSlot}>أكّد الحجز</button>
+          </form>
+        </>
+      )
+    }
+  </main>
+</Base>

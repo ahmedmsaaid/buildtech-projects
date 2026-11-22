@@ -1,0 +1,56 @@
+---
+/**
+ * Confirmation shown after booking. The address contains the appointment's
+ * random id, which is what keeps it private to the person who booked.
+ */
+import Base from '../../../layouts/Base.astro';
+import { getAppointment } from '../../../lib/appointments';
+import { getClinicBySlug } from '../../../lib/clinics';
+import { formatDay, formatMinute } from '../../../lib/time';
+import { egyptianMobile, whatsappNumber } from '../../../lib/validate';
+
+const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
+const appointment = clinic && (await getAppointment(clinic.id, Astro.params.id ?? ''));
+if (!clinic || !appointment) return new Response(null, { status: 404 });
+
+const when = `${formatDay(appointment.day)} الساعة ${formatMinute(appointment.start_minute)}`;
+const clinicWhatsapp = egyptianMobile(clinic.whatsapp);
+const changeMessage = `أهلاً، أنا ${appointment.patient_name} وحاجز ${when}. عايز أغيّر الميعاد.`;
+const isCancelled = appointment.status === 'cancelled';
+---
+
+<Base title={`تأكيد الحجز · ${clinic.name}`} accent={clinic.accent} isPrivate>
+  <main class="page">
+    <header class="clinic">
+      <h1>{isCancelled ? 'الحجز ده اتلغى' : 'حجزك اتأكد'}</h1>
+      <p>{clinic.name}</p>
+    </header>
+
+    <section class="card">
+      <dl class="summary">
+        <dt>الميعاد</dt>
+        <dd>{when}</dd>
+        <dt>الزيارة</dt>
+        <dd>{appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}</dd>
+        <dt>الاسم</dt>
+        <dd>{appointment.patient_name}</dd>
+        {clinic.address && (
+          <>
+            <dt>العنوان</dt>
+            <dd>{clinic.address}</dd>
+          </>
+        )}
+      </dl>
+      {!isCancelled && <p class="muted">تعالى قبل ميعادك بعشر دقايق. احفظ الصفحة دي أو خد لها صورة.</p>}
+    </section>
+
+    <div class="row">
+      {clinicWhatsapp && (
+        <a class="button" href={`https://wa.me/${whatsappNumber(clinicWhatsapp)}?text=${encodeURIComponent(changeMessage)}`} rel="noopener">
+          عايز أغيّر الميعاد
+        </a>
+      )}
+      <a class="button" href={`/${clinic.slug}`}>حجز جديد</a>
+    </div>
+  </main>
+</Base>

@@ -1,0 +1,27 @@
+{
+  "name": "clinic-booking",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev": "astro dev --port 4340",
+    "build": "astro build",
+    "check": "astro check",
+    "migrate": "node scripts/migrate.mjs",
+    "create-clinic": "node scripts/create-clinic.mjs"
+  },
+  "dependencies": {
+    "@astrojs/vercel": "^10.0.8",
+    "@electric-sql/pglite": "^0.5.17",
+    "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
+    "astro": "^6.4.8",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@types/node": "^22.20.5",
+    "typescript": "^6.0.3"
+  },
+  "overrides": { "vite": "^7" }
+}

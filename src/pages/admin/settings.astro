@@ -1,0 +1,181 @@
+---
+/** Clinic settings: public details, weekly hours, and the kinds of visit patients can book. */
+import Admin from '../../layouts/Admin.astro';
+import { addService, getClinicById, getServices, getWorkingWeek, saveWorkingDay, updateClinicDetails, updateService } from '../../lib/clinics';
+import { fromTimeInput, toTimeInput, weekdayNames } from '../../lib/time';
+import { isHexColor, text, wholeNumber } from '../../lib/validate';
+
+let { clinic } = Astro.locals;
+const problems: string[] = [];
+let saved = Astro.url.searchParams.has('saved');
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = text(form, '_action', 20);
+
+  if (action === 'details') {
+    const slotMinutes = wholeNumber(form, 'slot_minutes', 5, 240);
+    const bookingDays = wholeNumber(form, 'booking_days', 1, 90);
+    const accent = text(form, 'accent', 7);
+    const name = text(form, 'name', 80);
+
+    if (!name) problems.push('اسم العيادة مطلوب.');
+    if (slotMinutes === null) problems.push('مدة الميعاد لازم تكون من 5 لـ 240 دقيقة.');
+    if (bookingDays === null) problems.push('أيام الحجز المتاحة لازم تكون من 1 لـ 90.');
+    if (!isHexColor(accent)) problems.push('اختار لون صحيح.');
+
+    if (problems.length === 0 && slotMinutes !== null && bookingDays !== null) {
+      await updateClinicDetails(clinic.id, {
+        name,
+        specialty: text(form, 'specialty', 80),
+        doctor_name: text(form, 'doctor_name', 80),
+        address: text(form, 'address', 200),
+        phone: text(form, 'phone', 20),
+        whatsapp: text(form, 'whatsapp', 20),
+        accent,
+        slot_minutes: slotMinutes,
+        booking_days: bookingDays,
+      });
+    }
+  }
+
+  if (action === 'hours') {
+    for (let weekday = 0; weekday < 7; weekday++) {
+      const open = fromTimeInput(form.get(`open_${weekday}`));
+      const close = fromTimeInput(form.get(`close_${weekday}`));
+      if (open === null || close === null || open >= close) {
+        problems.push(`مواعيد يوم ${weekdayNames[weekday]}: وقت الفتح لازم يكون قبل وقت القفل.`);
+        continue;
+      }
+      await saveWorkingDay(clinic.id, { weekday, is_open: form.has(`is_open_${weekday}`), open_minute: open, close_minute: close });
+    }
+  }
+
+  if (action === 'service-add' || action === 'service-update') {
+    const name = text(form, 'name', 60);
+    const price = wholeNumber(form, 'price', 0, 1_000_000);
+    if (!name) problems.push('اسم نوع الزيارة مطلوب.');
+    if (price === null) problems.push('السعر لازم يكون رقم. اكتب 0 لو مش عايز تظهر سعر.');
+
+    if (problems.length === 0 && price !== null) {
+      if (action === 'service-add') await addService(clinic.id, name, price);
+      else await updateService(clinic.id, text(form, 'id', 40), { name, price, is_active: form.has('is_active') });
+    }
+  }
+
+  if (problems.length === 0) return Astro.redirect('/admin/settings?saved');
+  saved = false;
+  clinic = (await getClinicById(clinic.id)) ?? clinic;
+}
+
+const [week, services] = await Promise.all([getWorkingWeek(clinic.id), getServices(clinic.id, { includeRetired: true })]);
+// The week is shown Saturday first, the way it is counted in Egypt.
+const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
+---
+
+<Admin title="الإعدادات">
+  {saved && <p class="notice" role="status">اتحفظ.</p>}
+  {
+    problems.length > 0 && (
+      <div class="notice notice--error" role="alert">
+        <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
+      </div>
+    )
+  }
+
+  <form class="card" method="post">
+    <input type="hidden" name="_action" value="details" />
+    <h2>بيانات العيادة</h2>
+    <p class="hint">بتظهر للمريض في صفحة الحجز: <a class="ltr" href={`/${clinic.slug}`} target="_blank" rel="noopener">/{clinic.slug}</a></p>
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="name">اسم العيادة</label>
+        <input id="name" name="name" type="text" value={clinic.name} required maxlength="80" />
+      </div>
+      <div class="field">
+        <label for="specialty">التخصص</label>
+        <input id="specialty" name="specialty" type="text" value={clinic.specialty} maxlength="80" />
+      </div>
+      <div class="field">
+        <label for="doctor_name">اسم الدكتور</label>
+        <input id="doctor_name" name="doctor_name" type="text" value={clinic.doctor_name} maxlength="80" />
+      </div>
+      <div class="field">
+        <label for="address">العنوان</label>
+        <input id="address" name="address" type="text" value={clinic.address} maxlength="200" />
+      </div>
+      <div class="field">
+        <label for="phone">تليفون العيادة</label>
+        <input id="phone" class="ltr" name="phone" type="tel" value={clinic.phone} maxlength="20" />
+      </div>
+      <div class="field">
+        <label for="whatsapp">واتساب العيادة</label>
+        <input id="whatsapp" class="ltr" name="whatsapp" type="tel" value={clinic.whatsapp} maxlength="20" />
+        <p class="hint">المريض بيكلمك عليه لو عايز يغيّر ميعاده.</p>
+      </div>
+      <div class="field">
+        <label for="slot_minutes">مدة الميعاد بالدقايق</label>
+        <input id="slot_minutes" name="slot_minutes" type="number" value={clinic.slot_minutes} min="5" max="240" required />
+        <p class="hint">تغييرها بيغيّر الساعات المعروضة للحجوزات الجديدة بس.</p>
+      </div>
+      <div class="field">
+        <label for="booking_days">المريض يحجز لحد كام يوم قدام</label>
+        <input id="booking_days" name="booking_days" type="number" value={clinic.booking_days} min="1" max="90" required />
+      </div>
+      <div class="field">
+        <label for="accent">لون العيادة</label>
+        <input id="accent" name="accent" type="color" value={clinic.accent} />
+      </div>
+    </div>
+    <div><button class="button button--primary" type="submit">حفظ البيانات</button></div>
+  </form>
+
+  <form class="card" method="post">
+    <input type="hidden" name="_action" value="hours" />
+    <h2>مواعيد العمل</h2>
+    <div class="hours">
+      {
+        weekFromSaturday.map((day) => (
+          <div class="hours__day">
+            <label class="row">
+              <input type="checkbox" name={`is_open_${day.weekday}`} checked={day.is_open} />
+              {weekdayNames[day.weekday]}
+            </label>
+            <input type="time" name={`open_${day.weekday}`} value={toTimeInput(day.open_minute)} aria-label={`فتح ${weekdayNames[day.weekday]}`} required />
+            <input type="time" name={`close_${day.weekday}`} value={toTimeInput(day.close_minute)} aria-label={`قفل ${weekdayNames[day.weekday]}`} required />
+          </div>
+        ))
+      }
+    </div>
+    <p class="hint">اليوم اللي مش معلّم عليه بيبقى إجازة ومش بيظهر للمريض.</p>
+    <div><button class="button button--primary" type="submit">حفظ المواعيد</button></div>
+  </form>
+
+  <section class="card" aria-labelledby="services-title">
+    <h2 id="services-title">أنواع الزيارة</h2>
+    {
+      services.map((service) => (
+        <form class="row" method="post">
+          <input type="hidden" name="_action" value="service-update" />
+          <input type="hidden" name="id" value={service.id} />
+          <input name="name" type="text" value={service.name} aria-label="اسم نوع الزيارة" required maxlength="60" class="grow-2" />
+          <input name="price" type="number" value={service.price} min="0" aria-label="السعر بالجنيه" required class="grow" />
+          <label class="row">
+            <input type="checkbox" name="is_active" checked={service.is_active} />
+            متاح للحجز
+          </label>
+          <button class="button button--small" type="submit">حفظ</button>
+        </form>
+      ))
+    }
+
+    <form class="row" method="post">
+      <input type="hidden" name="_action" value="service-add" />
+      <input name="name" type="text" placeholder="نوع زيارة جديد، مثال: إعادة" aria-label="اسم نوع الزيارة الجديد" required maxlength="60" class="grow-2" />
+      <input name="price" type="number" placeholder="السعر" min="0" aria-label="سعر نوع الزيارة الجديد" required class="grow" />
+      <button class="button button--small button--primary" type="submit">إضافة</button>
+    </form>
+    <p class="hint">السعر بالجنيه. اكتب 0 لو مش عايز السعر يظهر للمريض.</p>
+  </section>
+</Admin>

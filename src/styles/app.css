@@ -1,0 +1,486 @@
+/*
+ * One stylesheet for the patient pages and the staff dashboard.
+ * Every color and size comes from the variables below. --accent is the
+ * clinic's own color, set on <body> by the layouts.
+ */
+:root {
+  --accent: #0f766e;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
+  --bg: #f6f7f8;
+  --surface: #ffffff;
+  --text: #16202a;
+  --muted: #5b6672;
+  --line: #dde2e7;
+  --danger: #b42318;
+  --warning: #b54708;
+  --success: #067647;
+
+  --radius: 0.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --tap: 2.75rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  line-height: 1.7;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+fieldset {
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: 1.6rem;
+  line-height: 1.3;
+}
+
+h2 {
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+ul {
+  list-style: none;
+}
+
+fieldset {
+  border: 0;
+  min-width: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  width: min(100% - 2rem, 40rem);
+  margin-inline: auto;
+  padding-block: var(--space-5) var(--space-6);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.page--wide {
+  width: min(100% - 2rem, 62rem);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.button--small {
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.875rem;
+}
+
+.button--danger {
+  color: var(--danger);
+}
+
+.button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.choice input:focus-visible + span {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, white);
+  outline-offset: 2px;
+}
+
+/* Forms */
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field > label,
+legend {
+  font-weight: 600;
+}
+
+legend {
+  margin-block-end: var(--space-2);
+}
+
+input[type='text'],
+input[type='tel'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+input[type='time'],
+input[type='search'],
+input[type='date'],
+select,
+textarea {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+input[type='color'] {
+  width: 5rem;
+  min-height: var(--tap);
+  padding: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Inputs that sit in a row beside other controls. */
+input.field--inline {
+  width: auto;
+}
+
+.grow {
+  flex: 1;
+  min-width: 9rem;
+}
+
+.grow-2 {
+  flex: 2;
+  min-width: 9rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.trap {
+  position: absolute;
+  inset-inline-start: -9999px;
+}
+
+/* Pick-one lists (days, services, time slots): a radio styled as a pill. */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.choice input {
+  position: absolute;
+  opacity: 0;
+}
+
+.choice span,
+a.choice {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.choice small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.choice input:checked + span,
+a.choice[aria-current='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.choice input:checked + span small,
+a.choice[aria-current='true'] small {
+  color: inherit;
+}
+
+.choice input:disabled + span {
+  background: var(--bg);
+  color: var(--muted);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* Messages */
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--success);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.notice--error {
+  border-inline-start-color: var(--danger);
+}
+
+/* Clinic header on patient pages */
+.clinic {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.clinic a {
+  color: inherit;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+}
+
+.summary dt {
+  color: var(--muted);
+}
+
+.summary dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Dashboard chrome */
+.topbar {
+  border-block-end: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.topbar__inner {
+  width: min(100% - 2rem, 62rem);
+  margin-inline: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-3);
+}
+
+.topbar__name {
+  font-weight: 700;
+}
+
+.topbar nav {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.topbar nav a {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.topbar nav a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.row--spread {
+  justify-content: space-between;
+}
+
+.grid-2 {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 40rem) {
+  .grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-3);
+}
+
+.stat {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.stat strong {
+  display: block;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+/* A day's appointments */
+.visits {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.visit {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.visit[data-status='cancelled'],
+.visit[data-status='no_show'] {
+  background: var(--bg);
+}
+
+.visit__time {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.badge {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.badge[data-status='arrived'] {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.badge[data-status='done'] {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.badge[data-status='no_show'],
+.badge[data-status='cancelled'] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: var(--space-3);
+  border-block-end: 1px solid var(--line);
+  text-align: start;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.hours {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.hours__day {
+  display: grid;
+  grid-template-columns: 7rem 1fr 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* On a phone the navigation takes its own row under the clinic name and buttons. */
+@media (max-width: 40rem) {
+  .topbar__name {
+    flex: 1;
+  }
+
+  .topbar nav {
+    order: 1;
+    flex-basis: 100%;
+  }
+}

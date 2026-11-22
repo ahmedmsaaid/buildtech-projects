@@ -1,0 +1,35 @@
+---
+/** The HTML shell of every page. `accent` is the clinic's own color. */
+import '@fontsource/ibm-plex-sans-arabic/400.css';
+import '@fontsource/ibm-plex-sans-arabic/600.css';
+import '@fontsource/ibm-plex-sans-arabic/700.css';
+import '../styles/app.css';
+import { isHexColor } from '../lib/validate';
+
+interface Props {
+  title: string;
+  accent?: string;
+  /** Staff pages are private and must not appear in search results. */
+  isPrivate?: boolean;
+}
+
+const { title, accent, isPrivate = false } = Astro.props;
+// The color is typed by clinic staff, so only a plain hex value may reach the page.
+const accentStyle = accent && isHexColor(accent) ? `--accent: ${accent}` : undefined;
+---
+
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {isPrivate && <meta name="robots" content="noindex" />}
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content={accent && isHexColor(accent) ? accent : '#0f766e'} />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  </head>
+  <body style={accentStyle}>
+    <slot />
+  </body>
+</html>

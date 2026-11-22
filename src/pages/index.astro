@@ -1,0 +1,23 @@
+---
+/** The product's front door. Each clinic lives at its own address: /<clinic>. */
+import Base from '../layouts/Base.astro';
+import { usesLocalDatabase } from '../lib/db';
+---
+
+<Base title="حجز العيادات · BuildTech">
+  <main class="page">
+    <header class="clinic">
+      <h1>حجز العيادات</h1>
+      <p>مرضاك يحجزوا من لينك باسم عيادتك، وإنت تتابع مواعيد اليوم من موبايلك.</p>
+    </header>
+
+    <section class="card">
+      <h2>بتدور على عيادتك؟</h2>
+      <p class="muted">افتح اللينك اللي العيادة بعتتهولك، أو اطلبه منهم.</p>
+      <div class="row">
+        <a class="button" href="/admin">دخول العيادات</a>
+        {usesLocalDatabase && <a class="button button--primary" href="/demo">العيادة التجريبية</a>}
+      </div>
+    </section>
+  </main>
+</Base>

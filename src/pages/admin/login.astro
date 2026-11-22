@@ -1,0 +1,42 @@
+---
+/** Staff sign-in. The middleware sends signed-in users straight to /admin. */
+import Base from '../../layouts/Base.astro';
+import { signIn } from '../../lib/auth';
+import { signInLimiter } from '../../lib/rate-limit';
+import { text } from '../../lib/validate';
+
+let failed = false;
+let limited = false;
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = text(form, 'email', 120);
+  const password = typeof form.get('password') === 'string' ? String(form.get('password')) : '';
+
+  limited = signInLimiter.isLimited(Astro.clientAddress);
+  if (!limited && (await signIn(Astro.cookies, email, password))) return Astro.redirect('/admin');
+  failed = !limited;
+}
+---
+
+<Base title="دخول العيادة" isPrivate>
+  <main class="page">
+    <h1>دخول العيادة</h1>
+
+    {failed && <p class="notice notice--error" role="alert">الإيميل أو كلمة السر غلط.</p>}
+    {limited && <p class="notice notice--error" role="alert">محاولات كتير. جرّب تاني بعد عشر دقايق.</p>}
+
+    <form class="card" method="post">
+      <div class="field">
+        <label for="email">الإيميل</label>
+        <input id="email" class="ltr" name="email" type="email" value={email} autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">كلمة السر</label>
+        <input id="password" class="ltr" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button class="button button--primary" type="submit">دخول</button>
+    </form>
+  </main>
+</Base>

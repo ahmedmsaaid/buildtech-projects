@@ -1,0 +1,199 @@
+---
+/**
+ * The front desk's view of one day: who is coming, marking arrivals and
+ * no-shows, reminding patients on WhatsApp, and adding a booking by hand.
+ */
+import Admin from '../../layouts/Admin.astro';
+import {
+  appointmentStatuses,
+  bookAppointment,
+  getAppointmentsOn,
+  getSlots,
+  setAppointmentStatus,
+  statusLabels,
+  type Appointment,
+  type AppointmentStatus,
+} from '../../lib/appointments';
+import { getServices } from '../../lib/clinics';
+import { addDays, formatDay, formatMinute, isDay, nowIn } from '../../lib/time';
+import { egyptianMobile, text, whatsappNumber } from '../../lib/validate';
+
+const { clinic } = Astro.locals;
+const today = nowIn(clinic.timezone).day;
+const requested = Astro.url.searchParams.get('date');
+const day = isDay(requested) ? requested : today;
+
+const problems: string[] = [];
+let typed = { name: '', phone: '' };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = text(form, '_action', 20);
+
+  if (action === 'status') {
+    const status = text(form, 'status', 20) as AppointmentStatus;
+    if (appointmentStatuses.includes(status)) {
+      const change = await setAppointmentStatus(clinic.id, text(form, 'id', 40), status);
+      if (change === 'slot_taken') problems.push('الميعاد ده اتحجز لحد تاني، فمش هينفع يرجع.');
+      else return Astro.redirect(`/admin?date=${day}`);
+    }
+  }
+
+  if (action === 'add') {
+    typed = { name: text(form, 'name', 80), phone: text(form, 'phone', 20) };
+    const mobile = egyptianMobile(typed.phone);
+    if (typed.name.length < 3) problems.push('اكتب اسم المريض.');
+    if (!mobile) problems.push('رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01.');
+
+    if (problems.length === 0 && mobile) {
+      const result = await bookAppointment(clinic, {
+        day,
+        minute: Number(text(form, 'minute', 5) || -1),
+        serviceId: text(form, 'service', 40),
+        patientName: typed.name,
+        patientPhone: mobile,
+        source: 'staff',
+      });
+      if (result.ok) return Astro.redirect(`/admin?date=${day}`);
+      problems.push(result.reason === 'slot_taken' ? 'الساعة دي اتحجزت. اختار ساعة تانية.' : 'اختار ساعة ونوع زيارة من المعروض.');
+    }
+  }
+}
+
+const [appointments, slots, services] = await Promise.all([
+  getAppointmentsOn(clinic.id, day),
+  getSlots(clinic, day, { forStaff: true }),
+  getServices(clinic.id),
+]);
+const freeSlots = slots.filter((slot) => slot.free);
+const count = (status: AppointmentStatus) => appointments.filter((appointment) => appointment.status === status).length;
+
+/** The buttons that make sense from each status. */
+const nextSteps: Record<AppointmentStatus, AppointmentStatus[]> = {
+  booked: ['arrived', 'no_show', 'cancelled'],
+  arrived: ['done', 'booked'],
+  done: ['arrived'],
+  no_show: ['booked'],
+  cancelled: ['booked'],
+};
+const stepLabels: Record<AppointmentStatus, string> = {
+  booked: 'رجّعه محجوز',
+  arrived: 'وصل',
+  done: 'تم الكشف',
+  no_show: 'ما جاش',
+  cancelled: 'إلغاء',
+};
+
+function reminderLink(appointment: Appointment): string {
+  const message = `أهلاً ${appointment.patient_name}، بنفكّرك بميعادك في ${clinic.name} يوم ${formatDay(appointment.day)} الساعة ${formatMinute(appointment.start_minute)}. لو مش هتقدر تيجي بلّغنا.`;
+  return `https://wa.me/${whatsappNumber(appointment.patient_phone)}?text=${encodeURIComponent(message)}`;
+}
+---
+
+<Admin title={day === today ? `مواعيد النهارده · ${formatDay(day)}` : `مواعيد ${formatDay(day)}`}>
+  <div class="row row--spread">
+    <div class="row">
+      <a class="button button--small" href={`/admin?date=${addDays(day, -1)}`}>اليوم اللي قبله</a>
+      {day !== today && <a class="button button--small" href="/admin">النهارده</a>}
+      <a class="button button--small" href={`/admin?date=${addDays(day, 1)}`}>اليوم اللي بعده</a>
+    </div>
+    <form class="row" method="get">
+      <label class="hint" for="date">روح ليوم</label>
+      <input id="date" class="field--inline" name="date" type="date" value={day} />
+      <button class="button button--small" type="submit">اعرض</button>
+    </form>
+  </div>
+
+  {
+    problems.length > 0 && (
+      <div class="notice notice--error" role="alert">
+        <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
+      </div>
+    )
+  }
+
+  <div class="stats">
+    <p class="stat"><strong>{appointments.length - count('cancelled')}</strong> حجز</p>
+    <p class="stat"><strong>{count('arrived')}</strong> في الانتظار</p>
+    <p class="stat"><strong>{count('done')}</strong> تم الكشف</p>
+    <p class="stat"><strong>{count('no_show')}</strong> ما جاش</p>
+    <p class="stat"><strong>{freeSlots.length}</strong> ميعاد فاضي</p>
+  </div>
+
+  {
+    appointments.length === 0 ? (
+      <p class="card muted">مفيش حجوزات في اليوم ده.</p>
+    ) : (
+      <ul class="visits">
+        {appointments.map((appointment) => (
+          <li class="visit" data-status={appointment.status}>
+            <div class="row row--spread">
+              <div class="row">
+                <span class="visit__time">{formatMinute(appointment.start_minute)}</span>
+                <strong>{appointment.patient_name}</strong>
+                <a class="ltr" href={`tel:${appointment.patient_phone}`}>{appointment.patient_phone}</a>
+              </div>
+              <span class="badge" data-status={appointment.status}>{statusLabels[appointment.status]}</span>
+            </div>
+
+            <p class="muted">
+              {appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}
+              {appointment.source === 'online' ? ' · حجز أونلاين' : ' · حجز من العيادة'}
+              {appointment.note && ` · ${appointment.note}`}
+            </p>
+
+            <div class="row">
+              {nextSteps[appointment.status].map((status) => (
+                <form method="post">
+                  <input type="hidden" name="_action" value="status" />
+                  <input type="hidden" name="id" value={appointment.id} />
+                  <input type="hidden" name="status" value={status} />
+                  <button class:list={['button', 'button--small', { 'button--primary': status === 'arrived' || status === 'done', 'button--danger': status === 'cancelled' }]} type="submit">
+                    {stepLabels[status]}
+                  </button>
+                </form>
+              ))}
+              {appointment.status === 'booked' && (
+                <a class="button button--small" href={reminderLink(appointment)} target="_blank" rel="noopener">فكّره على واتساب</a>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  <section class="card" aria-labelledby="add-title">
+    <h2 id="add-title">إضافة حجز لليوم ده</h2>
+    {
+      freeSlots.length === 0 || services.length === 0 ? (
+        <p class="muted">{services.length === 0 ? 'ضيف نوع زيارة من الإعدادات الأول.' : 'مفيش مواعيد فاضية في اليوم ده.'}</p>
+      ) : (
+        <form class="grid-2" method="post">
+          <input type="hidden" name="_action" value="add" />
+          <div class="field">
+            <label for="add-minute">الساعة</label>
+            <select id="add-minute" name="minute" required>
+              {freeSlots.map((slot) => <option value={slot.minute}>{formatMinute(slot.minute)}</option>)}
+            </select>
+          </div>
+          <div class="field">
+            <label for="add-service">نوع الزيارة</label>
+            <select id="add-service" name="service" required>
+              {services.map((service) => <option value={service.id}>{service.name}</option>)}
+            </select>
+          </div>
+          <div class="field">
+            <label for="add-name">اسم المريض</label>
+            <input id="add-name" name="name" type="text" value={typed.name} required minlength="3" maxlength="80" />
+          </div>
+          <div class="field">
+            <label for="add-phone">رقم الموبايل</label>
+            <input id="add-phone" class="ltr" name="phone" type="tel" value={typed.phone} inputmode="tel" placeholder="01xxxxxxxxx" required />
+          </div>
+          <div><button class="button button--primary" type="submit">احجز</button></div>
+        </form>
+      )
+    }
+  </section>
+</Admin>
