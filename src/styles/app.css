@@ -367,6 +367,7 @@ a {
 
 .grid-2 {
   display: grid;
+  align-items: start;
   gap: var(--s4);
 }
 
@@ -381,9 +382,13 @@ a {
   min-width: 9rem;
 }
 
-/* ---------- Forms ---------- */
+/* ---------- Forms ----------
+   Every one-line control (text, number, date, time, select) is exactly the
+   same height and shape, whatever the browser's own default for that type. */
 .field {
   display: grid;
+  /* A field never stretches to match a taller neighbour: its control keeps its own height. */
+  align-content: start;
   gap: var(--s1);
 }
 
@@ -397,33 +402,99 @@ legend {
 }
 
 :is(input:not([type='checkbox'], [type='radio'], [type='color']), select, textarea) {
+  display: block;
   width: 100%;
-  min-height: var(--tap);
-  padding: var(--s2) var(--s3);
+  margin: 0;
+  padding: 0 var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--ink);
   font: inherit;
-  transition: border-color 150ms;
+  line-height: 1.5;
+  /* Values read from the same edge as their labels, numbers and dates included. */
+  text-align: start;
+  appearance: none;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+:is(input:not([type='checkbox'], [type='radio'], [type='color']), select) {
+  height: var(--tap);
+}
+
+textarea {
+  min-height: 5.5rem;
+  padding-block: var(--s2);
+  resize: vertical;
+}
+
+/* Latin-only values (phones, emails, links) keep their reading order but still line up with the rest. */
+:is(input, textarea).ltr {
+  text-align: end;
+}
+
+/* Number, date and time inputs draw their value left-to-right by default. */
+input:is([type='number'], [type='date'], [type='time']) {
+  direction: rtl;
+}
+
+input::-webkit-date-and-time-value {
+  text-align: start;
+}
+
+/* The spin buttons change the height in some browsers and add nothing here. */
+input[type='number'] {
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+/* Our own arrow, so every browser draws the same select. */
+select {
+  padding-inline-end: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left var(--s3) center;
+  background-size: 1.1rem;
+  cursor: pointer;
+}
+
+::placeholder {
+  color: color-mix(in srgb, var(--muted) 75%, var(--tint));
+  opacity: 1;
 }
 
 :is(input, select, textarea):hover {
   border-color: var(--accent-line);
 }
 
+:is(input:not([type='checkbox'], [type='radio'], [type='color']), select, textarea):focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: none;
+}
+
 input[type='color'] {
   width: 4.5rem;
-  min-height: var(--tap);
+  height: var(--tap);
   padding: var(--s1);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  cursor: pointer;
 }
 
 input[type='checkbox'] {
+  flex-shrink: 0;
   width: 1.15rem;
   height: 1.15rem;
+  margin: 0;
   accent-color: var(--accent);
 }
 
@@ -435,9 +506,26 @@ input[type='number'].auto {
   width: 6.5rem !important;
 }
 
+input[type='date'].auto {
+  width: 11rem !important;
+}
+
+/* A button on the same line as a control is the same height as the control. */
+form.row > .btn,
+form.row > label {
+  min-height: var(--tap);
+}
+
+form.row > label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
 .hint {
   color: var(--muted);
   font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 /* A radio or link drawn as a selectable tile (days, times, services). */
@@ -1038,7 +1126,6 @@ details > summary {
 
   .pagehead > .row > form.row input {
     flex: 1;
-    width: auto !important;
     min-width: 0;
   }
 }
@@ -1519,6 +1606,10 @@ fieldset.card > legend + * {
    ===================================================================== */
 
 /* ---------- Mode ---------- */
+body[data-mode='dark'] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa8b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
 body[data-mode='dark'] {
   color-scheme: dark;
   --bg: #0d131a;
