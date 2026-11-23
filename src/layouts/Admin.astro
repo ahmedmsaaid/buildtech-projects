@@ -4,6 +4,7 @@
  * phone it becomes a tab bar at the bottom, the way an app works.
  */
 import Icon from '../components/Icon.astro';
+import { daysBetween, formatDay, nowIn } from '../lib/time';
 import Base from './Base.astro';
 
 interface Props {
@@ -21,6 +22,10 @@ const links = [
   { href: '/admin/reports', label: 'التقارير', icon: 'chart' },
   { href: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
 ] as const;
+
+// A week before the subscription ends, every page says so.
+const daysLeft = clinic.paid_until ? daysBetween(nowIn(clinic.timezone).day, clinic.paid_until) : null;
+const renewalDue = daysLeft !== null && daysLeft <= 7;
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/admin';
 /** A section stays highlighted on its inner pages, e.g. a patient's profile. */
@@ -73,6 +78,15 @@ const isCurrent = (href: string) => (href === '/admin' ? path === href : path.st
           <slot name="actions" />
         </div>
       </header>
+      {
+        renewalDue && clinic.paid_until && (
+          <p class="notice notice--error no-print" role="status">
+            <Icon name="wallet" />
+            {daysLeft !== null && daysLeft < 0 ? `اشتراكك انتهى يوم ${formatDay(clinic.paid_until)}.` : `اشتراكك بينتهي يوم ${formatDay(clinic.paid_until)}.`}
+            {' '}كلّم BuildTech للتجديد عشان الخدمة ما تتوقفش.
+          </p>
+        )
+      }
       <slot />
     </main>
 

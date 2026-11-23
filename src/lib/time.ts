@@ -80,3 +80,12 @@ export function periodOf(minute: number): 'morning' | 'afternoon' | 'evening' {
 }
 
 export const periodNames = { morning: 'الصبح', afternoon: 'بعد الضهر', evening: 'بالليل' } as const;
+
+/** The same date a number of months later; the 31st falls back to the month's last day. */
+export function addMonths(day: string, count: number): string {
+  const [year, month, date] = day.split('-').map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + count, 1));
+  const lastDate = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(date, lastDate));
+  return target.toISOString().slice(0, 10);
+}

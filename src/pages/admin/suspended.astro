@@ -1,0 +1,29 @@
+---
+/** What a clinic's staff see while the platform owner has suspended the clinic. */
+import Icon from '../../components/Icon.astro';
+import Base from '../../layouts/Base.astro';
+
+const { clinic } = Astro.locals;
+---
+
+<Base title={`الخدمة متوقفة · ${clinic.name}`} accent={clinic.accent} isPrivate>
+  <main class="shell">
+    <header class="hero">
+      <div class="hero__id">
+        <span class="avatar"><Icon name="ban" /></span>
+        <div>
+          <h1>الخدمة متوقفة مؤقتاً</h1>
+          <p>{clinic.name}</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="card">
+      <p>اشتراك العيادة متوقف، فالحجز الأونلاين واللوحة مقفولين دلوقتي.</p>
+      <p class="muted">بياناتك كلها محفوظة: المواعيد والمرضى والتقارير هيرجعوا زي ما هم أول ما الاشتراك يتفعّل. كلّم BuildTech للتجديد.</p>
+      <form method="post" action="/admin/logout">
+        <button class="btn" type="submit"><Icon name="logout" />خروج</button>
+      </form>
+    </section>
+  </main>
+</Base>

@@ -9,5 +9,7 @@ declare namespace App {
   interface Locals {
     user: import('./lib/auth').StaffUser;
     clinic: import('./lib/clinics').Clinic;
+    /** Set by the middleware on every /owner page except the sign-in page. */
+    owner: import('./lib/owner-auth').Owner;
   }
 }

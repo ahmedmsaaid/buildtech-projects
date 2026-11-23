@@ -22,7 +22,12 @@ export function hashPassword(password: string): string {
   return `${salt.toString('hex')}:${scryptSync(password, salt, 64).toString('hex')}`;
 }
 
-function passwordMatches(password: string, stored: string): boolean {
+/** A random password to hand to a new account once; the user is told to keep it safe. */
+export function generatePassword(): string {
+  return randomBytes(9).toString('base64url');
+}
+
+export function passwordMatches(password: string, stored: string): boolean {
   const [salt, hash] = stored.split(':');
   if (!salt || !hash) return false;
   const expected = Buffer.from(hash, 'hex');
@@ -30,7 +35,7 @@ function passwordMatches(password: string, stored: string): boolean {
   return timingSafeEqual(actual, expected);
 }
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -41,12 +46,20 @@ export async function signIn(cookies: AstroCookies, email: string, password: str
   ]);
   if (!user || !passwordMatches(password, user.password_hash)) return false;
 
+  await startSession(cookies, user.id);
+  return true;
+}
+
+/**
+ * Signs the browser in as a staff member without a password. Only for code
+ * that has already established the right to do so: a correct password above,
+ * or the platform owner opening a clinic's dashboard.
+ */
+export async function startSession(cookies: AstroCookies, userId: string): Promise<void> {
   const token = randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  await query('insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3)', [hashToken(token), user.id, expires.toISOString()]);
-
+  await query('insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3)', [hashToken(token), userId, expires.toISOString()]);
   cookies.set(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: import.meta.env.PROD, path: '/', expires });
-  return true;
 }
 
 /** The signed-in staff member, or null. */

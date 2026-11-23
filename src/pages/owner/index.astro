@@ -1,0 +1,97 @@
+---
+/** Every clinic on the platform: who is active, who needs chasing, and what the subscriptions bring in. */
+import Icon from '../../components/Icon.astro';
+import Owner from '../../layouts/Owner.astro';
+import { getIncomeSince, listClinics, monthlyValue, planLabels, stateLabels, subscriptionState, type SubscriptionState } from '../../lib/platform';
+import { addDays, formatShortDay, nowIn } from '../../lib/time';
+
+const today = nowIn('Africa/Cairo').day;
+const search = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 60);
+const filter = Astro.url.searchParams.get('state') ?? '';
+
+const [allClinics, incomeThisMonth] = await Promise.all([listClinics(search, addDays(today, -29)), getIncomeSince(`${today.slice(0, 8)}01`)]);
+
+const rows = allClinics.map((clinic) => ({ clinic, state: subscriptionState(clinic, today) }));
+const countOf = (state: SubscriptionState) => rows.filter((row) => row.state === state).length;
+const shown = filter ? rows.filter((row) => row.state === filter) : rows;
+
+/** Badge colors reuse the appointment ones: green for fine, amber for soon, red for a problem. */
+const tone: Record<SubscriptionState, string> = { active: 'done', expiring: 'arrived', expired: 'no_show', suspended: 'cancelled' };
+const filters: { state: SubscriptionState; label: string }[] = [
+  { state: 'active', label: 'شغّالة' },
+  { state: 'expiring', label: 'قرّبت تنتهي' },
+  { state: 'expired', label: 'منتهية' },
+  { state: 'suspended', label: 'موقوفة' },
+];
+const link = (state: string) => `/owner?${new URLSearchParams({ ...(search && { q: search }), ...(state && { state }) })}`;
+---
+
+<Owner title="العيادات" subtitle={`${allClinics.length} عيادة على المنصة`}>
+  <a slot="actions" class="btn btn--primary" href="/owner/clinics/new"><Icon name="plus" />عيادة جديدة</a>
+
+  <div class="stats">
+    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{countOf('active') + countOf('expiring')}</strong><span>عيادة شغّالة</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{countOf('expiring')}</strong><span>تنتهي خلال أسبوع</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{countOf('expired') + countOf('suspended')}</strong><span>منتهية أو موقوفة</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="chart" /></span><span><strong>{monthlyValue(allClinics)}</strong><span>قيمة الاشتراكات شهرياً (ج)</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{incomeThisMonth}</strong><span>المحصّل الشهر ده (ج)</span></span></p>
+  </div>
+
+  <form class="row" method="get" role="search">
+    {filter && <input type="hidden" name="state" value={filter} />}
+    <input class="grow" name="q" type="search" value={search} placeholder="ابحث باسم العيادة أو الدكتور أو اللينك" aria-label="بحث في العيادات" />
+    <button class="btn" type="submit">بحث</button>
+  </form>
+
+  <nav class="row" aria-label="تصفية العيادات">
+    <a class:list={['btn', 'btn--sm', { 'btn--primary': filter === '' }]} href={link('')}>الكل ({rows.length})</a>
+    {
+      filters.map((option) => (
+        <a class:list={['btn', 'btn--sm', { 'btn--primary': filter === option.state }]} href={link(option.state)}>
+          {option.label} ({countOf(option.state)})
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    shown.length === 0 ? (
+      <p class="card muted">{allClinics.length === 0 ? 'لسه مفيش عيادات. ضيف أول عيادة.' : 'مفيش عيادات بالشروط دي.'}</p>
+    ) : (
+      <div class="card table-wrap">
+        <table class="cards-on-phone">
+          <thead>
+            <tr>
+              <th>العيادة</th>
+              <th>الحالة</th>
+              <th>الخطة</th>
+              <th>الاشتراك لحد</th>
+              <th>حجوزات 30 يوم</th>
+              <th>آخر حجز</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map(({ clinic, state }) => (
+              <tr>
+                <td>
+                  <a class="person" href={`/owner/clinics/${clinic.id}`}>
+                    <span class="avatar avatar--sm" aria-hidden="true">{clinic.name.charAt(0)}</span>
+                    <span>
+                      {clinic.name}
+                      <small class="block muted">{clinic.doctor_name || `/${clinic.slug}`}</small>
+                    </span>
+                  </a>
+                </td>
+                <td data-label="الحالة"><span class="badge" data-status={tone[state]}>{stateLabels[state]}</span></td>
+                <td data-label="الخطة">{planLabels[clinic.plan]}{clinic.price > 0 && ` · ${clinic.price} ج`}</td>
+                <td data-label="الاشتراك لحد">{clinic.paid_until ? formatShortDay(clinic.paid_until) : '·'}</td>
+                <td data-label="حجوزات 30 يوم">{clinic.bookings_30d}</td>
+                <td data-label="آخر حجز">{clinic.last_booking_day ? formatShortDay(clinic.last_booking_day) : 'ما حجزش حد'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</Owner>

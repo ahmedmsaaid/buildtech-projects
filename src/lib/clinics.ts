@@ -17,6 +17,14 @@ export interface Clinic {
   about: string;
   map_url: string;
   cancel_hours: number;
+  status: 'active' | 'suspended';
+  plan: 'trial' | 'monthly' | 'yearly';
+  price: number;
+  /** Last day the subscription covers, or null when never paid. */
+  paid_until: string | null;
+  contact_name: string;
+  contact_phone: string;
+  owner_note: string;
 }
 
 export interface WorkingDay {

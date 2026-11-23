@@ -117,3 +117,47 @@ create table if not exists patient_notes (
   note text not null default '',
   primary key (clinic_id, patient_phone)
 );
+
+-- ---------------------------------------------------------------------------
+-- The platform side: the people who run the service, and each clinic's
+-- subscription to it.
+-- ---------------------------------------------------------------------------
+
+-- A suspended clinic keeps its data, but patients cannot book and staff cannot work.
+alter table clinics add column if not exists status text not null default 'active' check (status in ('active', 'suspended'));
+alter table clinics add column if not exists plan text not null default 'trial' check (plan in ('trial', 'monthly', 'yearly'));
+-- What the clinic pays per period of its plan, in whole pounds.
+alter table clinics add column if not exists price integer not null default 0 check (price >= 0);
+-- The last day the subscription covers ('YYYY-MM-DD'); null when never paid.
+alter table clinics add column if not exists paid_until text;
+-- Who to call at the clinic about the subscription. Never shown to patients.
+alter table clinics add column if not exists contact_name text not null default '';
+alter table clinics add column if not exists contact_phone text not null default '';
+alter table clinics add column if not exists owner_note text not null default '';
+
+create table if not exists owners (
+  id text primary key,
+  email text not null unique,
+  password_hash text not null,
+  name text not null default ''
+);
+
+create table if not exists owner_sessions (
+  token_hash text primary key,
+  owner_id text not null references owners (id) on delete cascade,
+  expires_at timestamptz not null
+);
+
+-- Every subscription payment received from a clinic.
+create table if not exists subscription_payments (
+  id text primary key,
+  clinic_id text not null references clinics (id) on delete cascade,
+  amount integer not null check (amount >= 0),
+  paid_on text not null,
+  -- The subscription end date this payment moved the clinic to.
+  covers_until text not null,
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists subscription_payments_by_clinic on subscription_payments (clinic_id, paid_on desc);

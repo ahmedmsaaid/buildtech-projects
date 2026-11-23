@@ -15,6 +15,10 @@ Open http://localhost:4340. With no `DATABASE_URL`, the app keeps a local
 database in `.data/` and creates a demo clinic at `/demo`. The demo sign-in
 for `/admin` is in `src/lib/dev-seed.ts`. Delete `.data/` to start again.
 
+The platform owner's dashboard is at `/owner`: every clinic, its
+subscription and payments, suspending a clinic, and opening its dashboard.
+Its demo sign-in is in the same file.
+
 ## How it is organised
 
 - `src/lib/schema.sql` — the tables, and the index that prevents double booking.
@@ -23,11 +27,12 @@ for `/admin` is in `src/lib/dev-seed.ts`. Delete `.data/` to start again.
 - `src/lib/clinics.ts` — a clinic's details, hours and services.
 - `src/pages/[clinic]/` — what patients see.
 - `src/pages/admin/` — the staff dashboard, guarded by `src/middleware.ts`.
+- `src/pages/owner/` and `src/lib/platform.ts` — the platform owner's side.
 
 ## Going live
 
 1. Create a Postgres database (for example a Supabase project) and put its
    connection string in `DATABASE_URL`.
 2. `npm run migrate` creates the tables.
-3. `npm run create-clinic -- <slug> "<name>" <email>` adds a clinic and prints
-   a one-time password for its first account.
+3. `npm run create-owner -- <email> "<name>"` adds your owner account and
+   prints its one-time password. Clinics are then added from `/owner`.

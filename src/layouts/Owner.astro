@@ -1,0 +1,84 @@
+---
+/** Shell of the platform owner's dashboard. Same structure as the clinic one, in the platform's own color. */
+import Icon from '../components/Icon.astro';
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+}
+
+const { title, subtitle } = Astro.props;
+const { owner } = Astro.locals;
+
+const links = [
+  { href: '/owner', label: 'العيادات', icon: 'building' },
+  { href: '/owner/clinics/new', label: 'عيادة جديدة', icon: 'plus' },
+] as const;
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/owner';
+/** A clinic's own page belongs to the clinics list, not to "new clinic". */
+const isCurrent = (href: string) => (href === '/owner' ? path === href || (path.startsWith('/owner/clinics/') && path !== '/owner/clinics/new') : path === href);
+---
+
+<Base title={`${title} · لوحة المنصة`} accent="#1f3a5f" isPrivate>
+  <div class="app">
+    <aside class="side">
+      <div class="side__brand">
+        <span class="avatar avatar--sm"><Icon name="shield" /></span>
+        <span>
+          لوحة المنصة
+          <small>{owner.name || owner.email}</small>
+        </span>
+      </div>
+
+      <nav class="side__nav" aria-label="أقسام اللوحة">
+        {
+          links.map((link) => (
+            <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+              <Icon name={link.icon} />
+              {link.label}
+            </a>
+          ))
+        }
+      </nav>
+
+      <div class="side__foot">
+        <form method="post" action="/owner/logout">
+          <button class="btn btn--ghost btn--sm btn--block" type="submit">
+            <Icon name="logout" />
+            <span>خروج</span>
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="pagehead">
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        <div class="row">
+          <slot name="actions" />
+          {/* The sidebar holds sign-out on larger screens. */}
+          <form class="only-phone" method="post" action="/owner/logout">
+            <button class="btn btn--sm" type="submit"><Icon name="logout" />خروج</button>
+          </form>
+        </div>
+      </header>
+      <slot />
+    </main>
+
+    <nav class="tabbar" aria-label="أقسام اللوحة">
+      {
+        links.map((link) => (
+          <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+            <Icon name={link.icon} />
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</Base>

@@ -14,13 +14,16 @@ import { egyptianMobile, text } from '../../lib/validate';
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
 if (!clinic) return new Response(null, { status: 404 });
 
-const [days, services, week] = await Promise.all([getBookableDays(clinic), getServices(clinic.id), getWorkingWeek(clinic.id)]);
+const isSuspended = clinic.status === 'suspended';
+const [bookableDays, services, week] = await Promise.all([getBookableDays(clinic), getServices(clinic.id), getWorkingWeek(clinic.id)]);
+// With no days to choose from, the page shows "call the clinic" and the form is gone.
+const days = isSuspended ? [] : bookableDays;
 
 const problems: string[] = [];
 let typed = { name: '', phone: '', note: '', serviceId: services[0]?.id ?? '', minute: -1 };
 let day = Astro.url.searchParams.get('date') ?? '';
 
-if (Astro.request.method === 'POST') {
+if (Astro.request.method === 'POST' && !isSuspended) {
   const form = await Astro.request.formData();
   day = text(form, 'day', 10);
   typed = {

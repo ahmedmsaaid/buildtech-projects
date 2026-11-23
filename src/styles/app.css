@@ -1009,6 +1009,12 @@ details > summary {
   gap: var(--s3) var(--s5);
 }
 
+@media (min-width: 48rem) {
+  .only-phone {
+    display: none;
+  }
+}
+
 .pagehead p {
   color: var(--muted);
 }
