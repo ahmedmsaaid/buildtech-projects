@@ -5,11 +5,19 @@
  * clinic's own color, set on <body> by the layouts; the soft and dark
  * variants are derived from it, so one color restyles the whole product.
  */
-:root {
+:root,
+body {
   --accent: #0f766e;
-  --accent-soft: color-mix(in srgb, var(--accent) 9%, white);
-  --accent-line: color-mix(in srgb, var(--accent) 28%, white);
+  /* What the accent is mixed with for soft backgrounds: the surface color of the current mode. */
+  --tint: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 9%, var(--tint));
+  --accent-line: color-mix(in srgb, var(--accent) 28%, var(--tint));
+  /* Accent as text on a soft background. Darker in light mode, lighter in dark mode. */
   --accent-dark: color-mix(in srgb, var(--accent) 78%, black);
+  /* Always darker than the accent: gradient ends and pressed buttons. */
+  --accent-deep: color-mix(in srgb, var(--accent) 78%, black);
+  --font: 'IBM Plex Sans Arabic';
+  --pill: 999px;
 
   --bg: #f3f5f8;
   --surface: #ffffff;
@@ -52,7 +60,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+  font-family: var(--font), 'Segoe UI', Tahoma, sans-serif;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
 }
@@ -202,7 +210,7 @@ a {
 }
 
 .btn--danger {
-  border-color: color-mix(in srgb, var(--bad) 30%, white);
+  border-color: color-mix(in srgb, var(--bad) 30%, var(--tint));
   color: var(--bad);
 }
 
@@ -235,13 +243,13 @@ a {
   }
 
   .btn--primary:hover {
-    background: var(--accent-dark);
+    background: var(--accent-deep);
   }
 }
 
 :is(.btn, input, select, textarea, summary, a):focus-visible,
 .pick input:focus-visible + * {
-  outline: 3px solid color-mix(in srgb, var(--accent) 40%, white);
+  outline: 3px solid color-mix(in srgb, var(--accent) 40%, var(--tint));
   outline-offset: 2px;
 }
 
@@ -279,7 +287,7 @@ a {
   align-items: center;
   gap: var(--s2);
   padding: var(--s1) var(--s3);
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--accent-soft);
   color: var(--accent-dark);
   font-size: 0.875rem;
@@ -292,7 +300,7 @@ a {
   align-items: center;
   gap: var(--s1);
   padding: 0.125rem var(--s3);
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--info-soft);
   color: var(--info);
   font-size: 0.8125rem;
@@ -320,7 +328,7 @@ a {
   display: flex;
   gap: var(--s3);
   padding: var(--s3) var(--s4);
-  border: 1px solid color-mix(in srgb, var(--ok) 25%, white);
+  border: 1px solid color-mix(in srgb, var(--ok) 25%, var(--tint));
   border-radius: var(--radius);
   background: var(--ok-soft);
   color: var(--ok);
@@ -328,7 +336,7 @@ a {
 }
 
 .notice--error {
-  border-color: color-mix(in srgb, var(--bad) 25%, white);
+  border-color: color-mix(in srgb, var(--bad) 25%, var(--tint));
   background: var(--bad-soft);
   color: var(--bad);
 }
@@ -494,7 +502,7 @@ a.pick__face[aria-current='true'] small {
 .pick input:disabled + .pick__face {
   border-style: dashed;
   background: var(--bg);
-  color: color-mix(in srgb, var(--muted) 60%, white);
+  color: color-mix(in srgb, var(--muted) 60%, var(--tint));
   text-decoration: line-through;
   cursor: not-allowed;
 }
@@ -545,7 +553,7 @@ a.pick__face[aria-current='true'] small {
   padding: var(--s6) var(--s5);
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: linear-gradient(140deg, var(--accent), var(--accent-dark));
+  background: linear-gradient(140deg, var(--accent), var(--accent-deep));
   color: #ffffff;
   box-shadow: var(--shadow);
 }
@@ -629,7 +637,7 @@ a.pick__face[aria-current='true'] small {
   gap: var(--s2);
   padding: var(--s2);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--surface);
   color: var(--muted);
   font-size: 0.875rem;
@@ -743,7 +751,7 @@ details > summary {
   justify-items: center;
   gap: var(--s2);
   padding: var(--s6) var(--s5);
-  background: linear-gradient(140deg, var(--accent), var(--accent-dark));
+  background: linear-gradient(140deg, var(--accent), var(--accent-deep));
   color: #ffffff;
   text-align: center;
 }
@@ -1083,7 +1091,7 @@ details > summary {
 
 .week__count {
   padding: 0 var(--s2);
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--accent-soft);
   color: var(--accent-dark);
   font-size: 0.75rem;
@@ -1406,7 +1414,7 @@ tbody tr:last-child td {
   width: min(100%, 2rem);
   min-height: 3px;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: linear-gradient(var(--accent), var(--accent-dark));
+  background: linear-gradient(var(--accent), var(--accent-deep));
 }
 
 .bars__bar[data-empty] {
@@ -1427,7 +1435,7 @@ tbody tr:last-child td {
 .meter {
   height: 0.5rem;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--pill);
   background: var(--line);
 }
 
@@ -1501,4 +1509,209 @@ fieldset.card > legend {
 
 fieldset.card > legend + * {
   clear: both;
+}
+
+/* =====================================================================
+   Themes
+   A clinic's choices arrive as data attributes on <body> (see theme.ts).
+   Each block below changes variables, so every component follows without
+   knowing about themes.
+   ===================================================================== */
+
+/* ---------- Mode ---------- */
+body[data-mode='dark'] {
+  color-scheme: dark;
+  --bg: #0d131a;
+  --surface: #161f2a;
+  --tint: #161f2a;
+  --ink: #e9eef4;
+  --muted: #9aa8b8;
+  --line: #2a3747;
+  --accent-dark: color-mix(in srgb, var(--accent) 62%, white);
+
+  --ok: #4ade80;
+  --ok-soft: #12301f;
+  --warn: #fbbf24;
+  --warn-soft: #3a2a0d;
+  --bad: #ff8a80;
+  --bad-soft: #3b1614;
+  --info: #8ab4ff;
+  --info-soft: #172848;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 12px 30px rgb(0 0 0 / 45%);
+}
+
+/* ---------- Background ---------- */
+body[data-bg='tinted'] {
+  --bg: color-mix(in srgb, var(--accent) 7%, #ffffff);
+}
+
+body[data-bg='warm'] {
+  --bg: #f7f2ea;
+}
+
+body[data-bg='white'] {
+  --bg: #ffffff;
+}
+
+body[data-mode='dark'][data-bg='tinted'] {
+  --bg: color-mix(in srgb, var(--accent) 12%, #0d131a);
+}
+
+body[data-mode='dark'][data-bg='warm'] {
+  --bg: #171310;
+}
+
+body[data-mode='dark'][data-bg='white'] {
+  --bg: #111922;
+}
+
+/* ---------- Corners ---------- */
+body[data-corners='sharp'] {
+  --radius-sm: 0.25rem;
+  --radius: 0.375rem;
+  --radius-lg: 0.5rem;
+  --pill: 0.375rem;
+}
+
+body[data-corners='round'] {
+  --radius-sm: 1rem;
+  --radius: 1.25rem;
+  --radius-lg: 1.75rem;
+}
+
+/* ---------- Cards ---------- */
+body[data-cards='outline'] :is(.card, .stat, .visit, .ticket) {
+  border-block-color: color-mix(in srgb, var(--ink) 22%, var(--surface));
+  border-inline-end-color: color-mix(in srgb, var(--ink) 22%, var(--surface));
+  box-shadow: none;
+}
+
+body[data-cards='outline'] :is(.card, .stat, .ticket) {
+  border-inline-start-color: color-mix(in srgb, var(--ink) 22%, var(--surface));
+}
+
+body[data-cards='flat'] :is(.card, .stat, .visit, .ticket) {
+  border-block-color: transparent;
+  border-inline-end-color: transparent;
+  box-shadow: none;
+}
+
+body[data-cards='flat'] :is(.card, .stat, .ticket) {
+  border-inline-start-color: transparent;
+}
+
+/* ---------- Page header ---------- */
+body[data-hero='solid'] :is(.hero, .ticket__top:not([data-state='cancelled'])) {
+  background: var(--accent);
+}
+
+body[data-hero='soft'] :is(.hero, .ticket__top:not([data-state='cancelled'])) {
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+body[data-hero='soft'] .hero::before,
+body[data-hero='soft'] .hero::after {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+body[data-hero='soft'] .hero .chip,
+body[data-hero='soft'] .hero .avatar,
+body[data-hero='soft'] .ticket__mark {
+  border-color: var(--accent-line);
+  background: var(--surface);
+  color: var(--accent-dark);
+}
+
+/* ---------- Buttons ---------- */
+body[data-buttons='soft'] .btn--primary {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  box-shadow: none;
+}
+
+body[data-buttons='outline'] .btn--primary {
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent-dark);
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  body:is([data-buttons='soft'], [data-buttons='outline']) .btn--primary:hover {
+    background: var(--accent);
+    color: #ffffff;
+  }
+}
+
+/* ---------- Spacing ---------- */
+body[data-density='compact'] {
+  --s3: 0.625rem;
+  --s4: 0.75rem;
+  --s5: 1.125rem;
+  --s6: 1.5rem;
+  --s7: 2.25rem;
+  --tap: 2.5rem;
+  font-size: 0.9375rem;
+}
+
+/* ---------- Appearance page ---------- */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--s2);
+}
+
+.swatch {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.swatch__look {
+  display: grid;
+  align-content: end;
+  height: 3.75rem;
+  padding: var(--s2);
+  border-radius: var(--radius-sm);
+}
+
+.swatch__look span {
+  width: 55%;
+  height: 0.5rem;
+  border-radius: 999px;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--s2);
+}
+
+.preview {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.preview iframe {
+  display: block;
+  width: 100%;
+  height: 34rem;
+  border: 0;
+  /* The preview is for looking, not for booking by accident. */
+  pointer-events: none;
 }

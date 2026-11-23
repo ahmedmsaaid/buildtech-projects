@@ -6,6 +6,7 @@
 import Icon from '../components/Icon.astro';
 import { daysBetween, formatDay, nowIn } from '../lib/time';
 import Base from './Base.astro';
+import { themeOf } from '../lib/theme';
 
 interface Props {
   title: string;
@@ -20,6 +21,7 @@ const links = [
   { href: '/admin', label: 'المواعيد', icon: 'calendar' },
   { href: '/admin/patients', label: 'المرضى', icon: 'users' },
   { href: '/admin/reports', label: 'التقارير', icon: 'chart' },
+  { href: '/admin/appearance', label: 'المظهر', icon: 'palette' },
   { href: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
 ] as const;
 
@@ -32,7 +34,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/admin';
 const isCurrent = (href: string) => (href === '/admin' ? path === href : path.startsWith(href));
 ---
 
-<Base title={`${title} · ${clinic.name}`} accent={clinic.accent} isPrivate>
+<Base title={`${title} · ${clinic.name}`} theme={themeOf(clinic)} isPrivate>
   <div class="app">
     <aside class="side">
       <div class="side__brand">

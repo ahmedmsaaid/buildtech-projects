@@ -1,0 +1,136 @@
+---
+/**
+ * Appearance: the clinic chooses its color and every style choice, with a
+ * live preview of its booking page. Ready-made looks apply in one tap.
+ * The choices style the booking page, the patient's ticket and this dashboard.
+ */
+import Icon from '../../components/Icon.astro';
+import Admin from '../../layouts/Admin.astro';
+import { updateAppearance } from '../../lib/clinics';
+import { attributeByChoice, cleanOptions, fontStackByChoice, presets, themeChoices, themeLabels, themeOf, type Theme, type ThemeKey } from '../../lib/theme';
+import { isHexColor, text } from '../../lib/validate';
+
+const { clinic } = Astro.locals;
+const problems: string[] = [];
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const preset = presets.find((candidate) => candidate.key === text(form, 'preset', 20));
+
+  if (preset) {
+    const { accent, ...options } = preset.theme;
+    await updateAppearance(clinic.id, accent, options);
+    return Astro.redirect('/admin/appearance?saved');
+  }
+
+  const accent = text(form, 'accent', 7);
+  if (!isHexColor(accent)) problems.push('اختار لون صحيح.');
+  else {
+    // Only the listed choices are kept; anything else in the form is ignored.
+    await updateAppearance(clinic.id, accent, cleanOptions(Object.fromEntries(form)));
+    return Astro.redirect('/admin/appearance?saved');
+  }
+}
+
+const theme = themeOf(clinic);
+const keys = Object.keys(themeChoices) as ThemeKey[];
+const saved = Astro.url.searchParams.has('saved');
+const labelOf = (key: ThemeKey, choice: string) => (themeLabels[key].choices as Record<string, string>)[choice];
+
+/** A small picture of a preset: its background, its color and its corner shape. */
+function swatchStyle(look: Theme): string {
+  const background = look.mode === 'dark' ? '#161f2a' : look.background === 'warm' ? '#f7f2ea' : look.background === 'white' ? '#ffffff' : '#f3f5f8';
+  return `background: ${background}; border: 1px solid ${look.mode === 'dark' ? '#2a3747' : '#e3e8ef'}`;
+}
+---
+
+<Admin title="المظهر" subtitle="شكل صفحة الحجز واللوحة: الألوان والخط والأشكال">
+  <a slot="actions" class="btn btn--sm btn--soft" href={`/${clinic.slug}`} target="_blank" rel="noopener"><Icon name="external" />افتح صفحة الحجز</a>
+
+  {saved && <p class="notice" role="status"><Icon name="check" />الشكل اتحفظ واتطبّق على صفحة الحجز واللوحة.</p>}
+  {problems.length > 0 && <p class="notice notice--error" role="alert"><Icon name="ban" />{problems[0]}</p>}
+
+  <div class="board">
+    <div class="stack">
+      <form class="card" method="post">
+        <h2 class="card__title"><Icon name="palette" />أشكال جاهزة</h2>
+        <p class="hint">اختار شكل كامل بضغطة، وبعدين عدّل فيه براحتك من تحت.</p>
+        <div class="swatches">
+          {
+            presets.map((preset) => (
+              <button class="swatch" type="submit" name="preset" value={preset.key}>
+                <span class="swatch__look" style={swatchStyle(preset.theme)}>
+                  <span style={`background: ${preset.theme.accent}`} />
+                </span>
+                {preset.name}
+              </button>
+            ))
+          }
+        </div>
+      </form>
+
+      <form class="card" method="post" data-theme-form>
+        <h2 class="card__title"><Icon name="settings" />تخصيص</h2>
+
+        <div class="field">
+          <label for="accent">لون العيادة</label>
+          <div class="row">
+            <input id="accent" name="accent" type="color" value={theme.accent} />
+            <span class="hint">بيلوّن الأزرار ورأس الصفحة والعناصر المختارة.</span>
+          </div>
+        </div>
+
+        {
+          keys.map((key) => (
+            <fieldset>
+              <legend>{themeLabels[key].title}</legend>
+              <div class="options">
+                {themeChoices[key].map((choice) => (
+                  <label class="pick">
+                    <input type="radio" name={key} value={choice} checked={theme[key] === choice} />
+                    <span class="pick__face">{labelOf(key, choice)}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ))
+        }
+
+        <div class="row">
+          <button class="btn btn--primary" type="submit"><Icon name="check" />حفظ الشكل</button>
+          <span class="hint">المعاينة بتتغير وإنت بتختار، بس الشكل ما بيتطبّقش للمرضى غير بعد الحفظ.</span>
+        </div>
+      </form>
+    </div>
+
+    <section class="board__side stack" aria-labelledby="preview-title">
+      <h2 id="preview-title" class="card__title"><Icon name="external" />معاينة صفحة الحجز</h2>
+      <div class="preview">
+        <iframe src={`/${clinic.slug}`} title="معاينة صفحة الحجز" loading="lazy" data-theme-preview></iframe>
+      </div>
+    </section>
+  </div>
+</Admin>
+
+<script define:vars={{ fontStacks: fontStackByChoice, attributeByChoice }}>
+  // Live preview: every change in the form is copied onto this page and onto
+  // the booking page in the frame. Nothing is saved until the form is sent.
+  const form = document.querySelector('[data-theme-form]');
+  const frame = document.querySelector('[data-theme-preview]');
+
+  function apply() {
+    const values = Object.fromEntries(new FormData(form));
+    const targets = [document.body];
+    // The frame is this same site, so its page can be restyled directly.
+    if (frame.contentDocument?.body) targets.push(frame.contentDocument.body);
+
+    for (const body of targets) {
+      body.style.setProperty('--accent', values.accent);
+      body.style.setProperty('--font', fontStacks[values.font]);
+      for (const [choice, attribute] of Object.entries(attributeByChoice)) body.setAttribute(attribute, values[choice]);
+    }
+  }
+
+  form.addEventListener('input', apply);
+  frame.addEventListener('load', apply);
+</script>

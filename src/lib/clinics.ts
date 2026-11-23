@@ -11,6 +11,8 @@ export interface Clinic {
   phone: string;
   whatsapp: string;
   accent: string;
+  /** JSON of theme choices; read it through themeOf() in theme.ts. */
+  theme: string;
   slot_minutes: number;
   booking_days: number;
   timezone: string;
@@ -158,4 +160,9 @@ export async function addClosedDay(clinicId: string, day: string, reason: string
 
 export async function removeClosedDay(clinicId: string, day: string): Promise<void> {
   await query('delete from closed_days where clinic_id = $1 and day = $2', [clinicId, day]);
+}
+
+/** Saves the clinic's color and theme choices. `theme` must already be cleaned (see theme.ts). */
+export async function updateAppearance(clinicId: string, accent: string, theme: Record<string, string>): Promise<void> {
+  await query('update clinics set accent = $2, theme = $3 where id = $1', [clinicId, accent, JSON.stringify(theme)]);
 }

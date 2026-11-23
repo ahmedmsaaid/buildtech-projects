@@ -15,7 +15,7 @@ import {
   updateService,
 } from '../../lib/clinics';
 import { formatDay, fromTimeInput, isDay, nowIn, toTimeInput, weekdayNames } from '../../lib/time';
-import { isHexColor, text, wholeNumber } from '../../lib/validate';
+import { text, wholeNumber } from '../../lib/validate';
 
 let { clinic } = Astro.locals;
 const today = nowIn(clinic.timezone).day;
@@ -30,7 +30,6 @@ if (Astro.request.method === 'POST') {
     const slotMinutes = wholeNumber(form, 'slot_minutes', 5, 240);
     const bookingDays = wholeNumber(form, 'booking_days', 1, 90);
     const cancelHours = wholeNumber(form, 'cancel_hours', 0, 72);
-    const accent = text(form, 'accent', 7);
     const name = text(form, 'name', 80);
     const mapUrl = text(form, 'map_url', 300);
 
@@ -38,7 +37,6 @@ if (Astro.request.method === 'POST') {
     if (slotMinutes === null) problems.push('مدة الميعاد لازم تكون من 5 لـ 240 دقيقة.');
     if (bookingDays === null) problems.push('أيام الحجز المتاحة لازم تكون من 1 لـ 90.');
     if (cancelHours === null) problems.push('مهلة الإلغاء لازم تكون من 0 لـ 72 ساعة.');
-    if (!isHexColor(accent)) problems.push('اختار لون صحيح.');
     if (mapUrl && !/^https:\/\//.test(mapUrl)) problems.push('رابط الخريطة لازم يبدأ بـ https://');
 
     if (problems.length === 0 && slotMinutes !== null && bookingDays !== null && cancelHours !== null) {
@@ -51,7 +49,7 @@ if (Astro.request.method === 'POST') {
         whatsapp: text(form, 'whatsapp', 20),
         about: text(form, 'about', 500),
         map_url: mapUrl,
-        accent,
+        accent: clinic.accent,
         slot_minutes: slotMinutes,
         booking_days: bookingDays,
         cancel_hours: cancelHours,
@@ -181,10 +179,6 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
       <div class="field">
         <label for="cancel_hours">المريض يلغي لحد كام ساعة قبل الميعاد</label>
         <input id="cancel_hours" name="cancel_hours" type="number" value={clinic.cancel_hours} min="0" max="72" required />
-      </div>
-      <div class="field">
-        <label for="accent">لون العيادة</label>
-        <input id="accent" name="accent" type="color" value={clinic.accent} />
       </div>
     </div>
     <div><button class="btn btn--primary" type="submit">حفظ البيانات</button></div>

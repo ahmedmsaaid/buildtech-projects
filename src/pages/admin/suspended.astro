@@ -2,11 +2,12 @@
 /** What a clinic's staff see while the platform owner has suspended the clinic. */
 import Icon from '../../components/Icon.astro';
 import Base from '../../layouts/Base.astro';
+import { themeOf } from '../../lib/theme';
 
 const { clinic } = Astro.locals;
 ---
 
-<Base title={`الخدمة متوقفة · ${clinic.name}`} accent={clinic.accent} isPrivate>
+<Base title={`الخدمة متوقفة · ${clinic.name}`} theme={themeOf(clinic)} isPrivate>
   <main class="shell">
     <header class="hero">
       <div class="hero__id">

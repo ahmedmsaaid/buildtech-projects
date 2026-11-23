@@ -161,3 +161,6 @@ create table if not exists subscription_payments (
 );
 
 create index if not exists subscription_payments_by_clinic on subscription_payments (clinic_id, paid_on desc);
+
+-- The clinic's look beyond its color: a JSON object of choices (see theme.ts).
+alter table clinics add column if not exists theme text not null default '{}';

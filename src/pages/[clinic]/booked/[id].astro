@@ -7,6 +7,7 @@
  */
 import Icon from '../../../components/Icon.astro';
 import Base from '../../../layouts/Base.astro';
+import { themeOf } from '../../../lib/theme';
 import { canPatientCancel, getAppointment, getQueuePosition, setAppointmentStatus } from '../../../lib/appointments';
 import { getClinicBySlug } from '../../../lib/clinics';
 import { formatDay, formatMinute, nowIn } from '../../../lib/time';
@@ -48,7 +49,7 @@ const headline: Record<typeof appointment.status, string> = {
 };
 ---
 
-<Base title={`حجزك · ${clinic.name}`} accent={clinic.accent} isPrivate>
+<Base title={`حجزك · ${clinic.name}`} theme={themeOf(clinic)} isPrivate>
   {/* On the day itself the page reloads by itself, so the queue stays current. */}
   {isLive && <meta slot="head" http-equiv="refresh" content="45" />}
 
