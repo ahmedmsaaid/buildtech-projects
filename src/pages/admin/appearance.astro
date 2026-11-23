@@ -106,7 +106,7 @@ function swatchStyle(look: Theme): string {
     <section class="board__side stack" aria-labelledby="preview-title">
       <h2 id="preview-title" class="card__title"><Icon name="external" />معاينة صفحة الحجز</h2>
       <div class="preview">
-        <iframe src={`/${clinic.slug}`} title="معاينة صفحة الحجز" loading="lazy" data-theme-preview></iframe>
+        <iframe src={`/${clinic.slug}`} title="معاينة صفحة الحجز" data-theme-preview></iframe>
       </div>
     </section>
   </div>
@@ -131,6 +131,29 @@ function swatchStyle(look: Theme): string {
     }
   }
 
+  // The preview scrolls and its day buttons work, but it is for looking:
+  // it cannot make a booking, and links that lead away from the page do nothing.
+  function makeLookOnly() {
+    const page = frame.contentDocument;
+    if (!page) return;
+    page.addEventListener('submit', (event) => event.preventDefault(), true);
+    page.addEventListener(
+      'click',
+      (event) => {
+        const link = event.target.closest('a');
+        if (link && !link.getAttribute('href')?.startsWith('?')) event.preventDefault();
+      },
+      true,
+    );
+  }
+
+  function prepareFrame() {
+    makeLookOnly();
+    apply();
+  }
+
   form.addEventListener('input', apply);
-  frame.addEventListener('load', apply);
+  frame.addEventListener('load', prepareFrame);
+  // The frame may have finished loading before this script ran.
+  if (frame.contentDocument?.readyState === 'complete') prepareFrame();
 </script>
