@@ -52,12 +52,12 @@ const isCurrent = (href: string) => (href === '/admin' ? path === href : path.st
       <div class="side__foot">
         <a class="btn btn--soft btn--sm" href={`/${clinic.slug}`} target="_blank" rel="noopener">
           <Icon name="external" />
-          صفحة الحجز
+          <span>صفحة الحجز</span>
         </a>
         <form method="post" action="/admin/logout">
           <button class="btn btn--ghost btn--sm btn--block" type="submit">
             <Icon name="logout" />
-            خروج
+            <span>خروج</span>
           </button>
         </form>
       </div>

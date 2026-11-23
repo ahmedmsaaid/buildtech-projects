@@ -79,7 +79,9 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
 ---
 
 <Base title={`احجز ميعادك · ${clinic.name}`} accent={clinic.accent}>
-  <main class="shell">
+  <main class="shell shell--booking">
+    {/* Clinic details: above the form on phones, beside it on wide screens. */}
+    <aside class="booking__info">
     <header class="hero">
       <div class="hero__id">
         <span class="avatar" aria-hidden="true">{initial}</span>
@@ -106,6 +108,24 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
     </header>
 
     {clinic.about && <p class="card">{clinic.about}</p>}
+    <details class="card">
+      <summary>مواعيد العمل</summary>
+      <dl class="hours-list">
+        {
+          weekFromSaturday.map((hours) => (
+            <>
+              <dt class:list={{ 'is-today': hours.weekday === weekdayOf(today) }}>{weekdayNames[hours.weekday]}</dt>
+              <dd class:list={{ muted: !hours.is_open, 'is-today': hours.weekday === weekdayOf(today) }}>
+                {hours.is_open ? `${formatMinute(hours.open_minute)} – ${formatMinute(hours.close_minute)}` : 'إجازة'}
+              </dd>
+            </>
+          ))
+        }
+      </dl>
+    </details>
+    </aside>
+
+    <div class="booking__main">
 
     {
       problems.length > 0 && (
@@ -225,22 +245,7 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
       )
     }
 
-    <details class="card">
-      <summary>مواعيد العمل</summary>
-      <dl class="hours-list">
-        {
-          weekFromSaturday.map((hours) => (
-            <>
-              <dt class:list={{ 'is-today': hours.weekday === weekdayOf(today) }}>{weekdayNames[hours.weekday]}</dt>
-              <dd class:list={{ muted: !hours.is_open, 'is-today': hours.weekday === weekdayOf(today) }}>
-                {hours.is_open ? `${formatMinute(hours.open_minute)} – ${formatMinute(hours.close_minute)}` : 'إجازة'}
-              </dd>
-            </>
-          ))
-        }
-      </dl>
-    </details>
-
     <p class="foot">نظام الحجز من BuildTech</p>
+    </div>
   </main>
 </Base>

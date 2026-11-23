@@ -108,8 +108,23 @@ a {
 .main,
 .board,
 .stack,
-.card {
+.card,
+.field,
+.hero,
+.ticket__body,
+.timeline,
+.visit,
+.split,
+.hours {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* Motion is decoration here, so it is dropped for people who ask for less of it. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .muted {
@@ -199,6 +214,13 @@ a {
 
 .btn--block {
   width: 100%;
+}
+
+@media (pointer: coarse) {
+  .btn--sm {
+    min-height: var(--tap);
+    padding-inline: var(--s4);
+  }
 }
 
 .btn[disabled] {
@@ -401,6 +423,10 @@ input[type='checkbox'] {
   width: auto !important;
 }
 
+input[type='number'].auto {
+  width: 6.5rem !important;
+}
+
 .hint {
   color: var(--muted);
   font-size: 0.875rem;
@@ -482,6 +508,34 @@ a.pick__face[aria-current='true'] small {
   padding-block: var(--s5) var(--s7);
   display: grid;
   gap: var(--s4);
+}
+
+.booking__info,
+.booking__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--s4);
+}
+
+@media (min-width: 64rem) {
+  .shell--booking {
+    width: min(100% - 3rem, 68rem);
+    grid-template-columns: 21rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--s5);
+  }
+
+  .booking__info {
+    position: sticky;
+    inset-block-start: var(--s5);
+  }
+
+  /* In the narrow side column the name sits under the avatar. */
+  .shell--booking .hero__id {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .hero {
@@ -568,10 +622,12 @@ a.pick__face[aria-current='true'] small {
 
 .steps li {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--s2);
-  padding: var(--s2) var(--s3);
+  padding: var(--s2);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
@@ -809,9 +865,14 @@ details > summary {
   height: 1.5rem;
 }
 
-@media (min-width: 60rem) {
+/* Phones with a home indicator: keep the tab bar clear of it. */
+.tabbar {
+  padding-block-end: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 48rem) {
   .app {
-    grid-template-columns: 15.5rem 1fr;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
   }
 
   .side {
@@ -821,7 +882,9 @@ details > summary {
     flex-direction: column;
     gap: var(--s5);
     height: 100vh;
-    padding: var(--s5) var(--s4);
+    height: 100dvh;
+    padding: var(--s4) var(--s2);
+    overflow-y: auto;
     border-inline-end: 1px solid var(--line);
     background: var(--surface);
   }
@@ -832,6 +895,61 @@ details > summary {
 
   .tabbar {
     display: none;
+  }
+
+  /* Tablet: a narrow rail of icons with their names underneath. */
+  .side__brand {
+    justify-content: center;
+  }
+
+  .side__brand > span:last-child,
+  .side__foot span {
+    display: none;
+  }
+
+  .side__nav a {
+    flex-direction: column;
+    gap: var(--s1);
+    padding: var(--s3) var(--s1);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+
+  .side__nav .icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+@media (min-width: 72rem) {
+  .app {
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+  }
+
+  .side {
+    padding: var(--s5) var(--s4);
+  }
+
+  .side__brand {
+    justify-content: flex-start;
+  }
+
+  .side__brand > span:last-child,
+  .side__foot span {
+    display: inline;
+  }
+
+  .side__nav a {
+    flex-direction: row;
+    gap: var(--s3);
+    padding: var(--s3);
+    font-size: 1rem;
+    text-align: start;
+  }
+
+  .side__nav .icon {
+    width: 1.25em;
+    height: 1.25em;
   }
 }
 
@@ -895,11 +1013,34 @@ details > summary {
   color: var(--muted);
 }
 
+@media (max-width: 40rem) {
+  .pagehead > .row {
+    width: 100%;
+  }
+
+  .pagehead > .row > form.row {
+    flex: 1 1 100%;
+  }
+
+  .pagehead > .row > form.row input {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+  }
+}
+
 /* The week at a glance: one tile per day with its number of bookings. */
 .week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(3.5rem, 1fr));
   gap: var(--s2);
+  overflow-x: auto;
+  padding-block-end: var(--s1);
+  scroll-snap-type: x proximity;
+}
+
+.week a {
+  scroll-snap-align: center;
 }
 
 .week a {
@@ -955,8 +1096,27 @@ details > summary {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s3);
+}
+
+/* An odd one out takes the full row instead of leaving a hole. */
+.stats > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 40rem) {
+  .stats {
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  }
+
+  .stats > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+
+.stat > span:last-child {
+  min-width: 0;
 }
 
 .stat {
@@ -1014,9 +1174,9 @@ details > summary {
   align-items: start;
 }
 
-@media (min-width: 72rem) {
+@media (min-width: 64rem) {
   .board {
-    grid-template-columns: minmax(0, 1fr) 21rem;
+    grid-template-columns: minmax(0, 1fr) 20rem;
   }
 
   .board__side {
@@ -1032,17 +1192,26 @@ details > summary {
 
 .tl {
   display: grid;
-  grid-template-columns: 4.25rem minmax(0, 1fr);
-  gap: var(--s3);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s1);
 }
 
 .tl__time {
-  padding-block-start: var(--s3);
   color: var(--muted);
   font-size: 0.875rem;
   font-weight: 600;
-  text-align: end;
+}
+
+@media (min-width: 40rem) {
+  .tl {
+    grid-template-columns: 4.25rem minmax(0, 1fr);
+    gap: var(--s3);
+  }
+
+  .tl__time {
+    padding-block-start: var(--s3);
+    text-align: end;
+  }
 }
 
 .tl__free {
@@ -1161,6 +1330,43 @@ tbody tr:last-child td {
   border-block-end: 0;
 }
 
+@media (max-width: 40rem) {
+  .cards-on-phone thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .cards-on-phone tr {
+    display: grid;
+    gap: var(--s1);
+    padding-block: var(--s3);
+    border-block-end: 1px solid var(--line);
+  }
+
+  .cards-on-phone tbody tr:last-child {
+    border-block-end: 0;
+  }
+
+  .cards-on-phone td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+
+  .cards-on-phone td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+}
+
 .person {
   display: flex;
   align-items: center;
@@ -1238,9 +1444,23 @@ tbody tr:last-child td {
 
 .hours__day {
   display: grid;
-  grid-template-columns: 7rem 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  gap: var(--s3);
+  gap: var(--s2) var(--s3);
+}
+
+.hours__day label {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 30rem) {
+  .hours__day {
+    grid-template-columns: 7rem repeat(2, minmax(0, 1fr));
+  }
+
+  .hours__day label {
+    grid-column: auto;
+  }
 }
 
 .hours__day label {
@@ -1261,4 +1481,18 @@ tbody tr:last-child td {
     width: 100%;
     padding: 0;
   }
+}
+
+/*
+ * A fieldset's legend normally sits on the border line. Floating it puts it
+ * inside the card like any other heading.
+ */
+fieldset.card > legend {
+  float: inline-start;
+  width: 100%;
+  margin: 0;
+}
+
+fieldset.card > legend + * {
+  clear: both;
 }

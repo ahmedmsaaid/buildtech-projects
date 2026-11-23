@@ -21,7 +21,7 @@ const patients = await getPatients(clinic.id, search);
       <p class="card muted">{search ? 'مفيش مريض بالاسم أو الرقم ده.' : 'لسه مفيش مرضى. أول حجز هيظهر هنا.'}</p>
     ) : (
       <div class="card table-wrap">
-        <table>
+        <table class="cards-on-phone">
           <thead>
             <tr>
               <th>المريض</th>
@@ -40,10 +40,10 @@ const patients = await getPatients(clinic.id, search);
                     {patient.patient_name}
                   </a>
                 </td>
-                <td class="ltr">{patient.patient_phone}</td>
-                <td>{patient.visits}</td>
-                <td>{patient.no_shows > 0 ? <span class="badge" data-status="no_show">{patient.no_shows}</span> : '0'}</td>
-                <td>{formatDay(patient.last_day)}</td>
+                <td data-label="الموبايل"><span class="ltr">{patient.patient_phone}</span></td>
+                <td data-label="الحجوزات">{patient.visits}</td>
+                <td data-label="ما جاش">{patient.no_shows > 0 ? <span class="badge" data-status="no_show">{patient.no_shows}</span> : '0'}</td>
+                <td data-label="آخر ميعاد">{formatDay(patient.last_day)}</td>
               </tr>
             ))}
           </tbody>

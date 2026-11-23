@@ -46,7 +46,7 @@ const saved = Astro.url.searchParams.has('saved');
     <section class="card" aria-labelledby="history-title">
       <h2 id="history-title" class="card__title"><Icon name="clock" />سجل الزيارات</h2>
       <div class="table-wrap">
-        <table>
+        <table class="cards-on-phone">
           <thead>
             <tr>
               <th>اليوم</th>
@@ -59,11 +59,11 @@ const saved = Astro.url.searchParams.has('saved');
           <tbody>
             {history.map((visit) => (
               <tr>
-                <td><a href={`/admin?date=${visit.day}`}>{formatDay(visit.day)}</a></td>
-                <td>{formatMinute(visit.start_minute)}</td>
-                <td>{visit.service_name}</td>
-                <td><span class="badge" data-status={visit.status}>{statusLabels[visit.status]}</span></td>
-                <td>{visit.paid > 0 ? `${visit.paid} ج` : '·'}</td>
+                <td data-label="اليوم"><a href={`/admin?date=${visit.day}`}>{formatDay(visit.day)}</a></td>
+                <td data-label="الساعة">{formatMinute(visit.start_minute)}</td>
+                <td data-label="الزيارة">{visit.service_name}</td>
+                <td data-label="الحالة"><span class="badge" data-status={visit.status}>{statusLabels[visit.status]}</span></td>
+                <td data-label="المدفوع">{visit.paid > 0 ? `${visit.paid} ج` : '·'}</td>
               </tr>
             ))}
           </tbody>
