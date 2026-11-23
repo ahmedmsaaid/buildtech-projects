@@ -1,5 +1,6 @@
 ---
 /** Staff sign-in. The middleware sends signed-in users straight to /admin. */
+import Icon from '../../components/Icon.astro';
 import Base from '../../layouts/Base.astro';
 import { signIn } from '../../lib/auth';
 import { signInLimiter } from '../../lib/rate-limit';
@@ -21,11 +22,19 @@ if (Astro.request.method === 'POST') {
 ---
 
 <Base title="دخول العيادة" isPrivate>
-  <main class="page">
-    <h1>دخول العيادة</h1>
+  <main class="shell">
+    <header class="hero">
+      <div class="hero__id">
+        <span class="avatar"><Icon name="pulse" /></span>
+        <div>
+          <h1>دخول العيادة</h1>
+          <p>تابع مواعيد النهارده وطابور الانتظار من أي جهاز.</p>
+        </div>
+      </div>
+    </header>
 
-    {failed && <p class="notice notice--error" role="alert">الإيميل أو كلمة السر غلط.</p>}
-    {limited && <p class="notice notice--error" role="alert">محاولات كتير. جرّب تاني بعد عشر دقايق.</p>}
+    {failed && <p class="notice notice--error" role="alert"><Icon name="ban" />الإيميل أو كلمة السر غلط.</p>}
+    {limited && <p class="notice notice--error" role="alert"><Icon name="ban" />محاولات كتير. جرّب تاني بعد عشر دقايق.</p>}
 
     <form class="card" method="post">
       <div class="field">
@@ -36,7 +45,7 @@ if (Astro.request.method === 'POST') {
         <label for="password">كلمة السر</label>
         <input id="password" class="ltr" name="password" type="password" autocomplete="current-password" required />
       </div>
-      <button class="button button--primary" type="submit">دخول</button>
+      <button class="btn btn--primary btn--block" type="submit">دخول</button>
     </form>
   </main>
 </Base>

@@ -28,6 +28,7 @@ const accentStyle = accent && isHexColor(accent) ? `--accent: ${accent}` : undef
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content={accent && isHexColor(accent) ? accent : '#0f766e'} />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <slot name="head" />
   </head>
   <body style={accentStyle}>
     <slot />

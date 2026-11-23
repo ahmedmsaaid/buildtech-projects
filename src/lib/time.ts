@@ -62,3 +62,21 @@ export function fromTimeInput(value: unknown): number | null {
   const minute = Number(match[1]) * 60 + Number(match[2]);
   return minute >= 0 && minute <= 1440 ? minute : null;
 }
+
+/** Whole days from `from` to `to`; negative when `to` is earlier. */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/** "28 نوفمبر", without the weekday. */
+export function formatShortDay(day: string): string {
+  const [, month, date] = day.split('-').map(Number);
+  return `${date} ${monthNames[month - 1]}`;
+}
+
+/** The part of the day a time falls in, used to group slots. */
+export function periodOf(minute: number): 'morning' | 'afternoon' | 'evening' {
+  return minute < 720 ? 'morning' : minute < 1020 ? 'afternoon' : 'evening';
+}
+
+export const periodNames = { morning: 'الصبح', afternoon: 'بعد الضهر', evening: 'بالليل' } as const;

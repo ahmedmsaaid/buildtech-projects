@@ -1,56 +1,141 @@
 ---
 /**
- * Confirmation shown after booking. The address contains the appointment's
- * random id, which is what keeps it private to the person who booked.
+ * The patient's own page for one appointment: the confirmation, the live
+ * waiting queue on the day, a calendar file, and cancelling.
+ * The address contains the appointment's random id, which is what keeps it
+ * private to the person who booked.
  */
+import Icon from '../../../components/Icon.astro';
 import Base from '../../../layouts/Base.astro';
-import { getAppointment } from '../../../lib/appointments';
+import { canPatientCancel, getAppointment, getQueuePosition, setAppointmentStatus } from '../../../lib/appointments';
 import { getClinicBySlug } from '../../../lib/clinics';
-import { formatDay, formatMinute } from '../../../lib/time';
-import { egyptianMobile, whatsappNumber } from '../../../lib/validate';
+import { formatDay, formatMinute, nowIn } from '../../../lib/time';
+import { egyptianMobile, text, whatsappNumber } from '../../../lib/validate';
 
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
-const appointment = clinic && (await getAppointment(clinic.id, Astro.params.id ?? ''));
+let appointment = clinic && (await getAppointment(clinic.id, Astro.params.id ?? ''));
 if (!clinic || !appointment) return new Response(null, { status: 404 });
 
-const when = `${formatDay(appointment.day)} الساعة ${formatMinute(appointment.start_minute)}`;
+const here = `/${clinic.slug}/booked/${appointment.id}`;
+let cancelRefused = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  if (text(form, '_action', 10) === 'cancel') {
+    if (canPatientCancel(clinic, appointment)) {
+      await setAppointmentStatus(clinic.id, appointment.id, 'cancelled');
+      return Astro.redirect(here);
+    }
+    cancelRefused = true;
+  }
+}
+
+const when = `${formatDay(appointment.day)} · ${formatMinute(appointment.start_minute)}`;
+const isCancelled = appointment.status === 'cancelled';
+const isToday = appointment.day === nowIn(clinic.timezone).day;
+const isLive = isToday && (appointment.status === 'booked' || appointment.status === 'arrived');
+const queue = isLive ? await getQueuePosition(clinic.id, appointment) : null;
+
 const clinicWhatsapp = egyptianMobile(clinic.whatsapp);
 const changeMessage = `أهلاً، أنا ${appointment.patient_name} وحاجز ${when}. عايز أغيّر الميعاد.`;
-const isCancelled = appointment.status === 'cancelled';
+
+const headline: Record<typeof appointment.status, string> = {
+  booked: 'حجزك اتأكد',
+  arrived: 'إنت في الانتظار',
+  done: 'تم الكشف. بالشفا',
+  no_show: 'الميعاد فات',
+  cancelled: 'الحجز اتلغى',
+};
 ---
 
-<Base title={`تأكيد الحجز · ${clinic.name}`} accent={clinic.accent} isPrivate>
-  <main class="page">
-    <header class="clinic">
-      <h1>{isCancelled ? 'الحجز ده اتلغى' : 'حجزك اتأكد'}</h1>
-      <p>{clinic.name}</p>
-    </header>
+<Base title={`حجزك · ${clinic.name}`} accent={clinic.accent} isPrivate>
+  {/* On the day itself the page reloads by itself, so the queue stays current. */}
+  {isLive && <meta slot="head" http-equiv="refresh" content="45" />}
 
-    <section class="card">
-      <dl class="summary">
-        <dt>الميعاد</dt>
-        <dd>{when}</dd>
-        <dt>الزيارة</dt>
-        <dd>{appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}</dd>
-        <dt>الاسم</dt>
-        <dd>{appointment.patient_name}</dd>
-        {clinic.address && (
-          <>
-            <dt>العنوان</dt>
-            <dd>{clinic.address}</dd>
-          </>
-        )}
-      </dl>
-      {!isCancelled && <p class="muted">تعالى قبل ميعادك بعشر دقايق. احفظ الصفحة دي أو خد لها صورة.</p>}
-    </section>
+  <main class="shell">
+    <article class="ticket">
+      <header class="ticket__top" data-state={isCancelled ? 'cancelled' : 'active'}>
+        <span class="ticket__mark"><Icon name={isCancelled ? 'x' : 'check'} /></span>
+        <h1>{headline[appointment.status]}</h1>
+        <p class="ticket__when">{when}</p>
+        <p>{clinic.name}</p>
+      </header>
 
-    <div class="row">
-      {clinicWhatsapp && (
-        <a class="button" href={`https://wa.me/${whatsappNumber(clinicWhatsapp)}?text=${encodeURIComponent(changeMessage)}`} rel="noopener">
-          عايز أغيّر الميعاد
-        </a>
-      )}
-      <a class="button" href={`/${clinic.slug}`}>حجز جديد</a>
-    </div>
+      <div class="ticket__body">
+        {
+          queue && (
+            <div class="queue-now" role="status">
+              <span class="queue-now__number">{queue.ahead ?? queue.waiting}</span>
+              <div>
+                {queue.ahead === null ? (
+                  <>
+                    <strong>{queue.waiting === 0 ? 'مفيش حد منتظر دلوقتي' : 'مريض منتظر في العيادة دلوقتي'}</strong>
+                    <p class="muted small">لما توصل بلّغ الاستقبال عشان تدخل الطابور.</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>{queue.ahead === 0 ? 'دورك دلوقتي' : 'مريض قدامك'}</strong>
+                    <p class="muted small">الصفحة بتتحدّث لوحدها كل شوية.</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        }
+
+        <dl class="facts">
+          <dt>الاسم</dt>
+          <dd>{appointment.patient_name}</dd>
+          <dt>الزيارة</dt>
+          <dd>{appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}</dd>
+          {clinic.doctor_name && (
+            <>
+              <dt>الدكتور</dt>
+              <dd>{clinic.doctor_name}</dd>
+            </>
+          )}
+          {clinic.address && (
+            <>
+              <dt>العنوان</dt>
+              <dd>
+                {clinic.map_url ? <a href={clinic.map_url} target="_blank" rel="noopener">{clinic.address}</a> : clinic.address}
+              </dd>
+            </>
+          )}
+        </dl>
+
+        {appointment.status === 'booked' && <p class="muted small">تعالى قبل ميعادك بعشر دقايق. احفظ لينك الصفحة دي: منها تتابع دورك وتلغي لو احتجت.</p>}
+        {cancelRefused && <p class="notice notice--error" role="alert">الميعاد قرّب، فالإلغاء من هنا مش متاح. كلّم العيادة.</p>}
+
+        {
+          !isCancelled && appointment.status === 'booked' && (
+            <div class="row">
+              <a class="btn btn--soft" href={`${here}.ics`}><Icon name="calendar" />ضيفه للتقويم</a>
+              {clinicWhatsapp && (
+                <a class="btn" href={`https://wa.me/${whatsappNumber(clinicWhatsapp)}?text=${encodeURIComponent(changeMessage)}`} rel="noopener">
+                  <Icon name="chat" />غيّر الميعاد
+                </a>
+              )}
+            </div>
+          )
+        }
+      </div>
+    </article>
+
+    {
+      canPatientCancel(clinic, appointment) && (
+        <details class="card">
+          <summary>عايز ألغي الحجز</summary>
+          <p class="muted">لو لغيت، الميعاد هيبقى متاح لمريض تاني.</p>
+          <form method="post">
+            <input type="hidden" name="_action" value="cancel" />
+            <button class="btn btn--danger" type="submit"><Icon name="x" />تأكيد الإلغاء</button>
+          </form>
+        </details>
+      )
+    }
+
+    <a class="btn btn--ghost" href={`/${clinic.slug}`}><Icon name="plus" />حجز جديد</a>
+    <p class="foot">نظام الحجز من BuildTech</p>
   </main>
 </Base>

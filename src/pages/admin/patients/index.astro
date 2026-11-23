@@ -1,0 +1,54 @@
+---
+/** Everyone who has booked at the clinic, with how often they came and how often they did not. */
+import Admin from '../../../layouts/Admin.astro';
+import { getPatients } from '../../../lib/appointments';
+import { formatDay } from '../../../lib/time';
+
+const { clinic } = Astro.locals;
+const search = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 60);
+const patients = await getPatients(clinic.id, search);
+---
+
+<Admin title="المرضى" subtitle={`${patients.length} مريض${search ? ' في نتيجة البحث' : ''}`}>
+  <form class="row" method="get" role="search">
+    <input class="grow" name="q" type="search" value={search} placeholder="ابحث بالاسم أو رقم الموبايل" aria-label="بحث في المرضى" />
+    <button class="btn" type="submit">بحث</button>
+    {search && <a class="btn btn--ghost" href="/admin/patients">الكل</a>}
+  </form>
+
+  {
+    patients.length === 0 ? (
+      <p class="card muted">{search ? 'مفيش مريض بالاسم أو الرقم ده.' : 'لسه مفيش مرضى. أول حجز هيظهر هنا.'}</p>
+    ) : (
+      <div class="card table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>المريض</th>
+              <th>الموبايل</th>
+              <th>الحجوزات</th>
+              <th>ما جاش</th>
+              <th>آخر ميعاد</th>
+            </tr>
+          </thead>
+          <tbody>
+            {patients.map((patient) => (
+              <tr>
+                <td>
+                  <a class="person" href={`/admin/patients/${patient.patient_phone}`}>
+                    <span class="avatar avatar--sm" aria-hidden="true">{patient.patient_name.charAt(0)}</span>
+                    {patient.patient_name}
+                  </a>
+                </td>
+                <td class="ltr">{patient.patient_phone}</td>
+                <td>{patient.visits}</td>
+                <td>{patient.no_shows > 0 ? <span class="badge" data-status="no_show">{patient.no_shows}</span> : '0'}</td>
+                <td>{formatDay(patient.last_day)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</Admin>

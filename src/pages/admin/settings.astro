@@ -1,11 +1,24 @@
 ---
-/** Clinic settings: public details, weekly hours, and the kinds of visit patients can book. */
+/** Clinic settings: public details, weekly hours, days off, and the kinds of visit patients can book. */
+import Icon from '../../components/Icon.astro';
 import Admin from '../../layouts/Admin.astro';
-import { addService, getClinicById, getServices, getWorkingWeek, saveWorkingDay, updateClinicDetails, updateService } from '../../lib/clinics';
-import { fromTimeInput, toTimeInput, weekdayNames } from '../../lib/time';
+import {
+  addClosedDay,
+  addService,
+  getClinicById,
+  getClosedDays,
+  getServices,
+  getWorkingWeek,
+  removeClosedDay,
+  saveWorkingDay,
+  updateClinicDetails,
+  updateService,
+} from '../../lib/clinics';
+import { formatDay, fromTimeInput, isDay, nowIn, toTimeInput, weekdayNames } from '../../lib/time';
 import { isHexColor, text, wholeNumber } from '../../lib/validate';
 
 let { clinic } = Astro.locals;
+const today = nowIn(clinic.timezone).day;
 const problems: string[] = [];
 let saved = Astro.url.searchParams.has('saved');
 
@@ -16,15 +29,19 @@ if (Astro.request.method === 'POST') {
   if (action === 'details') {
     const slotMinutes = wholeNumber(form, 'slot_minutes', 5, 240);
     const bookingDays = wholeNumber(form, 'booking_days', 1, 90);
+    const cancelHours = wholeNumber(form, 'cancel_hours', 0, 72);
     const accent = text(form, 'accent', 7);
     const name = text(form, 'name', 80);
+    const mapUrl = text(form, 'map_url', 300);
 
     if (!name) problems.push('اسم العيادة مطلوب.');
     if (slotMinutes === null) problems.push('مدة الميعاد لازم تكون من 5 لـ 240 دقيقة.');
     if (bookingDays === null) problems.push('أيام الحجز المتاحة لازم تكون من 1 لـ 90.');
+    if (cancelHours === null) problems.push('مهلة الإلغاء لازم تكون من 0 لـ 72 ساعة.');
     if (!isHexColor(accent)) problems.push('اختار لون صحيح.');
+    if (mapUrl && !/^https:\/\//.test(mapUrl)) problems.push('رابط الخريطة لازم يبدأ بـ https://');
 
-    if (problems.length === 0 && slotMinutes !== null && bookingDays !== null) {
+    if (problems.length === 0 && slotMinutes !== null && bookingDays !== null && cancelHours !== null) {
       await updateClinicDetails(clinic.id, {
         name,
         specialty: text(form, 'specialty', 80),
@@ -32,9 +49,12 @@ if (Astro.request.method === 'POST') {
         address: text(form, 'address', 200),
         phone: text(form, 'phone', 20),
         whatsapp: text(form, 'whatsapp', 20),
+        about: text(form, 'about', 500),
+        map_url: mapUrl,
         accent,
         slot_minutes: slotMinutes,
         booking_days: bookingDays,
+        cancel_hours: cancelHours,
       });
     }
   }
@@ -50,6 +70,14 @@ if (Astro.request.method === 'POST') {
       await saveWorkingDay(clinic.id, { weekday, is_open: form.has(`is_open_${weekday}`), open_minute: open, close_minute: close });
     }
   }
+
+  if (action === 'closed-add') {
+    const day = text(form, 'day', 10);
+    if (!isDay(day) || day < today) problems.push('اختار تاريخ النهارده أو بعده.');
+    else await addClosedDay(clinic.id, day, text(form, 'reason', 80));
+  }
+
+  if (action === 'closed-remove') await removeClosedDay(clinic.id, text(form, 'day', 10));
 
   if (action === 'service-add' || action === 'service-update') {
     const name = text(form, 'name', 60);
@@ -68,16 +96,28 @@ if (Astro.request.method === 'POST') {
   clinic = (await getClinicById(clinic.id)) ?? clinic;
 }
 
-const [week, services] = await Promise.all([getWorkingWeek(clinic.id), getServices(clinic.id, { includeRetired: true })]);
+const [week, services, closedDays] = await Promise.all([
+  getWorkingWeek(clinic.id),
+  getServices(clinic.id, { includeRetired: true }),
+  getClosedDays(clinic.id, today),
+]);
 // The week is shown Saturday first, the way it is counted in Egypt.
 const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
 ---
 
-<Admin title="الإعدادات">
-  {saved && <p class="notice" role="status">اتحفظ.</p>}
+<Admin title="الإعدادات" subtitle="بيانات العيادة ومواعيدها وأسعارها">
+  <Fragment slot="actions">
+    <a class="btn btn--sm btn--soft" href={`/${clinic.slug}`} target="_blank" rel="noopener"><Icon name="external" />صفحة الحجز</a>
+    <form method="post" action="/admin/logout">
+      <button class="btn btn--sm" type="submit"><Icon name="logout" />خروج</button>
+    </form>
+  </Fragment>
+
+  {saved && <p class="notice" role="status"><Icon name="check" />اتحفظ.</p>}
   {
     problems.length > 0 && (
       <div class="notice notice--error" role="alert">
+        <Icon name="ban" />
         <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
       </div>
     )
@@ -85,8 +125,10 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
 
   <form class="card" method="post">
     <input type="hidden" name="_action" value="details" />
-    <h2>بيانات العيادة</h2>
-    <p class="hint">بتظهر للمريض في صفحة الحجز: <a class="ltr" href={`/${clinic.slug}`} target="_blank" rel="noopener">/{clinic.slug}</a></p>
+    <div class="card__head">
+      <h2 class="card__title"><Icon name="pulse" />بيانات العيادة</h2>
+      <span class="muted small">لينك الحجز: <span class="ltr">/{clinic.slug}</span></span>
+    </div>
 
     <div class="grid-2">
       <div class="field">
@@ -114,68 +156,118 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
         <input id="whatsapp" class="ltr" name="whatsapp" type="tel" value={clinic.whatsapp} maxlength="20" />
         <p class="hint">المريض بيكلمك عليه لو عايز يغيّر ميعاده.</p>
       </div>
+    </div>
+
+    <div class="field">
+      <label for="about">نبذة عن العيادة</label>
+      <textarea id="about" name="about" rows="3" maxlength="500">{clinic.about}</textarea>
+      <p class="hint">سطرين بيظهروا للمريض فوق صفحة الحجز. سيبها فاضية لو مش عايز.</p>
+    </div>
+
+    <div class="field">
+      <label for="map_url">رابط الموقع على خرائط جوجل</label>
+      <input id="map_url" class="ltr" name="map_url" type="url" value={clinic.map_url} maxlength="300" placeholder="https://maps.app.goo.gl/..." />
+    </div>
+
+    <div class="grid-2">
       <div class="field">
         <label for="slot_minutes">مدة الميعاد بالدقايق</label>
         <input id="slot_minutes" name="slot_minutes" type="number" value={clinic.slot_minutes} min="5" max="240" required />
-        <p class="hint">تغييرها بيغيّر الساعات المعروضة للحجوزات الجديدة بس.</p>
       </div>
       <div class="field">
-        <label for="booking_days">المريض يحجز لحد كام يوم قدام</label>
+        <label for="booking_days">الحجز متاح لحد كام يوم قدام</label>
         <input id="booking_days" name="booking_days" type="number" value={clinic.booking_days} min="1" max="90" required />
+      </div>
+      <div class="field">
+        <label for="cancel_hours">المريض يلغي لحد كام ساعة قبل الميعاد</label>
+        <input id="cancel_hours" name="cancel_hours" type="number" value={clinic.cancel_hours} min="0" max="72" required />
       </div>
       <div class="field">
         <label for="accent">لون العيادة</label>
         <input id="accent" name="accent" type="color" value={clinic.accent} />
       </div>
     </div>
-    <div><button class="button button--primary" type="submit">حفظ البيانات</button></div>
+    <div><button class="btn btn--primary" type="submit">حفظ البيانات</button></div>
   </form>
 
-  <form class="card" method="post">
-    <input type="hidden" name="_action" value="hours" />
-    <h2>مواعيد العمل</h2>
-    <div class="hours">
-      {
-        weekFromSaturday.map((day) => (
-          <div class="hours__day">
-            <label class="row">
-              <input type="checkbox" name={`is_open_${day.weekday}`} checked={day.is_open} />
-              {weekdayNames[day.weekday]}
-            </label>
-            <input type="time" name={`open_${day.weekday}`} value={toTimeInput(day.open_minute)} aria-label={`فتح ${weekdayNames[day.weekday]}`} required />
-            <input type="time" name={`close_${day.weekday}`} value={toTimeInput(day.close_minute)} aria-label={`قفل ${weekdayNames[day.weekday]}`} required />
-          </div>
-        ))
-      }
-    </div>
-    <p class="hint">اليوم اللي مش معلّم عليه بيبقى إجازة ومش بيظهر للمريض.</p>
-    <div><button class="button button--primary" type="submit">حفظ المواعيد</button></div>
-  </form>
-
-  <section class="card" aria-labelledby="services-title">
-    <h2 id="services-title">أنواع الزيارة</h2>
-    {
-      services.map((service) => (
-        <form class="row" method="post">
-          <input type="hidden" name="_action" value="service-update" />
-          <input type="hidden" name="id" value={service.id} />
-          <input name="name" type="text" value={service.name} aria-label="اسم نوع الزيارة" required maxlength="60" class="grow-2" />
-          <input name="price" type="number" value={service.price} min="0" aria-label="السعر بالجنيه" required class="grow" />
-          <label class="row">
-            <input type="checkbox" name="is_active" checked={service.is_active} />
-            متاح للحجز
-          </label>
-          <button class="button button--small" type="submit">حفظ</button>
-        </form>
-      ))
-    }
-
-    <form class="row" method="post">
-      <input type="hidden" name="_action" value="service-add" />
-      <input name="name" type="text" placeholder="نوع زيارة جديد، مثال: إعادة" aria-label="اسم نوع الزيارة الجديد" required maxlength="60" class="grow-2" />
-      <input name="price" type="number" placeholder="السعر" min="0" aria-label="سعر نوع الزيارة الجديد" required class="grow" />
-      <button class="button button--small button--primary" type="submit">إضافة</button>
+  <div class="grid-2">
+    <form class="card" method="post">
+      <input type="hidden" name="_action" value="hours" />
+      <h2 class="card__title"><Icon name="clock" />مواعيد العمل</h2>
+      <div class="hours">
+        {
+          weekFromSaturday.map((day) => (
+            <div class="hours__day">
+              <label>
+                <input type="checkbox" name={`is_open_${day.weekday}`} checked={day.is_open} />
+                {weekdayNames[day.weekday]}
+              </label>
+              <input type="time" name={`open_${day.weekday}`} value={toTimeInput(day.open_minute)} aria-label={`فتح ${weekdayNames[day.weekday]}`} required />
+              <input type="time" name={`close_${day.weekday}`} value={toTimeInput(day.close_minute)} aria-label={`قفل ${weekdayNames[day.weekday]}`} required />
+            </div>
+          ))
+        }
+      </div>
+      <p class="hint">اليوم اللي مش معلّم عليه إجازة ومش بيظهر للمريض.</p>
+      <div><button class="btn btn--primary" type="submit">حفظ المواعيد</button></div>
     </form>
-    <p class="hint">السعر بالجنيه. اكتب 0 لو مش عايز السعر يظهر للمريض.</p>
-  </section>
+
+    <div class="stack">
+      <section class="card" aria-labelledby="closed-title">
+        <h2 id="closed-title" class="card__title"><Icon name="ban" />إجازات</h2>
+        <p class="hint">يوم بعينه العيادة مقفولة فيه: عيد، سفر، مؤتمر.</p>
+        {
+          closedDays.length > 0 && (
+            <ul class="queue">
+              {closedDays.map((closed) => (
+                <li>
+                  <span class="grow">
+                    <strong>{formatDay(closed.day)}</strong>
+                    {closed.reason && <span class="muted small"> · {closed.reason}</span>}
+                  </span>
+                  <form method="post">
+                    <input type="hidden" name="_action" value="closed-remove" />
+                    <input type="hidden" name="day" value={closed.day} />
+                    <button class="btn btn--sm btn--danger" type="submit">شيل</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+        <form class="row" method="post">
+          <input type="hidden" name="_action" value="closed-add" />
+          <input class="auto" name="day" type="date" min={today} aria-label="تاريخ الإجازة" required />
+          <input class="grow" name="reason" type="text" placeholder="السبب (اختياري)" aria-label="سبب الإجازة" maxlength="80" />
+          <button class="btn btn--sm btn--primary" type="submit">إضافة</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="services-title">
+        <h2 id="services-title" class="card__title"><Icon name="wallet" />أنواع الزيارة والأسعار</h2>
+        {
+          services.map((service) => (
+            <form class="row" method="post">
+              <input type="hidden" name="_action" value="service-update" />
+              <input type="hidden" name="id" value={service.id} />
+              <input class="grow" name="name" type="text" value={service.name} aria-label="اسم نوع الزيارة" required maxlength="60" />
+              <input class="auto" name="price" type="number" value={service.price} min="0" aria-label="السعر بالجنيه" required />
+              <label class="row small">
+                <input type="checkbox" name="is_active" checked={service.is_active} />
+                متاح
+              </label>
+              <button class="btn btn--sm" type="submit">حفظ</button>
+            </form>
+          ))
+        }
+        <form class="row" method="post">
+          <input type="hidden" name="_action" value="service-add" />
+          <input class="grow" name="name" type="text" placeholder="نوع جديد، مثال: إعادة" aria-label="اسم نوع الزيارة الجديد" required maxlength="60" />
+          <input class="auto" name="price" type="number" placeholder="السعر" min="0" aria-label="سعر نوع الزيارة الجديد" required />
+          <button class="btn btn--sm btn--primary" type="submit">إضافة</button>
+        </form>
+        <p class="hint">السعر بالجنيه. اكتب 0 لو مش عايز السعر يظهر للمريض.</p>
+      </section>
+    </div>
+  </div>
 </Admin>

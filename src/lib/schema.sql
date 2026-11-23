@@ -86,3 +86,34 @@ create unique index if not exists appointments_slot_taken
 
 create index if not exists appointments_by_day on appointments (clinic_id, day);
 create index if not exists appointments_by_phone on appointments (clinic_id, patient_phone);
+
+-- ---------------------------------------------------------------------------
+-- Added after the first version. Each statement is safe to repeat.
+-- ---------------------------------------------------------------------------
+
+-- A short paragraph and a map link for the clinic's public page.
+alter table clinics add column if not exists about text not null default '';
+alter table clinics add column if not exists map_url text not null default '';
+-- Patients may cancel online until this many hours before the appointment.
+alter table clinics add column if not exists cancel_hours integer not null default 2 check (cancel_hours between 0 and 72);
+
+-- When the patient was marked as arrived: this is their place in the queue.
+alter table appointments add column if not exists arrived_at timestamptz;
+-- What the patient actually paid, in whole pounds.
+alter table appointments add column if not exists paid integer not null default 0 check (paid >= 0);
+
+-- Single days the clinic is closed (holidays, travel), on top of the weekly hours.
+create table if not exists closed_days (
+  clinic_id text not null references clinics (id) on delete cascade,
+  day text not null check (day ~ '^\d{4}-\d{2}-\d{2}$'),
+  reason text not null default '',
+  primary key (clinic_id, day)
+);
+
+-- The clinic's private note about a patient. Patients are known by phone number.
+create table if not exists patient_notes (
+  clinic_id text not null references clinics (id) on delete cascade,
+  patient_phone text not null,
+  note text not null default '',
+  primary key (clinic_id, patient_phone)
+);

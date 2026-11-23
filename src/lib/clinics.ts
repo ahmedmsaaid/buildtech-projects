@@ -14,6 +14,9 @@ export interface Clinic {
   slot_minutes: number;
   booking_days: number;
   timezone: string;
+  about: string;
+  map_url: string;
+  cancel_hours: number;
 }
 
 export interface WorkingDay {
@@ -86,13 +89,24 @@ export async function updateService(clinicId: string, id: string, changes: { nam
 
 export type ClinicDetails = Pick<
   Clinic,
-  'name' | 'specialty' | 'doctor_name' | 'address' | 'phone' | 'whatsapp' | 'accent' | 'slot_minutes' | 'booking_days'
+  | 'name'
+  | 'specialty'
+  | 'doctor_name'
+  | 'address'
+  | 'phone'
+  | 'whatsapp'
+  | 'accent'
+  | 'slot_minutes'
+  | 'booking_days'
+  | 'about'
+  | 'map_url'
+  | 'cancel_hours'
 >;
 
 export async function updateClinicDetails(clinicId: string, details: ClinicDetails): Promise<void> {
   await query(
     `update clinics set name = $2, specialty = $3, doctor_name = $4, address = $5, phone = $6, whatsapp = $7,
-       accent = $8, slot_minutes = $9, booking_days = $10
+       accent = $8, slot_minutes = $9, booking_days = $10, about = $11, map_url = $12, cancel_hours = $13
      where id = $1`,
     [
       clinicId,
@@ -105,6 +119,35 @@ export async function updateClinicDetails(clinicId: string, details: ClinicDetai
       details.accent,
       details.slot_minutes,
       details.booking_days,
+      details.about,
+      details.map_url,
+      details.cancel_hours,
     ],
   );
+}
+
+export interface ClosedDay {
+  day: string;
+  reason: string;
+}
+
+/** Days off from `fromDay` onward, soonest first. */
+export function getClosedDays(clinicId: string, fromDay: string): Promise<ClosedDay[]> {
+  return query<ClosedDay>('select day, reason from closed_days where clinic_id = $1 and day >= $2 order by day', [clinicId, fromDay]);
+}
+
+export async function isClosedDay(clinicId: string, day: string): Promise<boolean> {
+  const [closed] = await query('select 1 from closed_days where clinic_id = $1 and day = $2', [clinicId, day]);
+  return closed !== undefined;
+}
+
+export async function addClosedDay(clinicId: string, day: string, reason: string): Promise<void> {
+  await query(
+    'insert into closed_days (clinic_id, day, reason) values ($1, $2, $3) on conflict (clinic_id, day) do update set reason = excluded.reason',
+    [clinicId, day, reason],
+  );
+}
+
+export async function removeClosedDay(clinicId: string, day: string): Promise<void> {
+  await query('delete from closed_days where clinic_id = $1 and day = $2', [clinicId, day]);
 }

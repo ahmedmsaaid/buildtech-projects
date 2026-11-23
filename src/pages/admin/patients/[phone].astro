@@ -1,0 +1,84 @@
+---
+/** One patient's file: every visit, what they paid, and the clinic's private note. */
+import Icon from '../../../components/Icon.astro';
+import Admin from '../../../layouts/Admin.astro';
+import { getPatientHistory, getPatientNote, savePatientNote, statusLabels } from '../../../lib/appointments';
+import { formatDay, formatMinute } from '../../../lib/time';
+import { egyptianMobile, text, whatsappNumber } from '../../../lib/validate';
+
+const { clinic } = Astro.locals;
+const phone = egyptianMobile(Astro.params.phone ?? '');
+if (!phone) return Astro.redirect('/admin/patients');
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  await savePatientNote(clinic.id, phone, text(form, 'note', 2000));
+  return Astro.redirect(`/admin/patients/${phone}?saved`);
+}
+
+const [history, note] = await Promise.all([getPatientHistory(clinic.id, phone), getPatientNote(clinic.id, phone)]);
+if (history.length === 0) return Astro.redirect('/admin/patients');
+
+const name = history[0].patient_name;
+const visits = history.filter((visit) => visit.status === 'done').length;
+const noShows = history.filter((visit) => visit.status === 'no_show').length;
+const paid = history.reduce((sum, visit) => sum + visit.paid, 0);
+const saved = Astro.url.searchParams.has('saved');
+---
+
+<Admin title={name} subtitle="ملف المريض">
+  <Fragment slot="actions">
+    <a class="btn btn--sm btn--ghost" href="/admin/patients">كل المرضى</a>
+    <a class="btn btn--sm ltr" href={`tel:${phone}`}><Icon name="phone" />{phone}</a>
+    <a class="btn btn--sm btn--soft" href={`https://wa.me/${whatsappNumber(phone)}`} target="_blank" rel="noopener"><Icon name="chat" />واتساب</a>
+  </Fragment>
+
+  {saved && <p class="notice" role="status"><Icon name="check" />الملاحظة اتحفظت.</p>}
+
+  <div class="stats">
+    <p class="stat"><span class="stat__icon"><Icon name="calendar" /></span><span><strong>{history.length}</strong><span>حجز</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{visits}</strong><span>زيارة تمت</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{noShows}</strong><span>ما جاش</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{paid}</strong><span>إجمالي المدفوع (ج)</span></span></p>
+  </div>
+
+  <div class="board">
+    <section class="card" aria-labelledby="history-title">
+      <h2 id="history-title" class="card__title"><Icon name="clock" />سجل الزيارات</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>اليوم</th>
+              <th>الساعة</th>
+              <th>الزيارة</th>
+              <th>الحالة</th>
+              <th>المدفوع</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.map((visit) => (
+              <tr>
+                <td><a href={`/admin?date=${visit.day}`}>{formatDay(visit.day)}</a></td>
+                <td>{formatMinute(visit.start_minute)}</td>
+                <td>{visit.service_name}</td>
+                <td><span class="badge" data-status={visit.status}>{statusLabels[visit.status]}</span></td>
+                <td>{visit.paid > 0 ? `${visit.paid} ج` : '·'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <form class="card board__side" method="post">
+      <h2 class="card__title"><Icon name="note" />ملاحظات العيادة</h2>
+      <div class="field">
+        <label class="sr-only" for="note">ملاحظات عن المريض</label>
+        <textarea id="note" name="note" rows="8" maxlength="2000" placeholder="حساسية، أدوية، تاريخ مرضي، أي حاجة تهم الدكتور...">{note}</textarea>
+        <p class="hint">الملاحظات دي للعيادة بس، المريض مش بيشوفها.</p>
+      </div>
+      <button class="btn btn--primary" type="submit">حفظ الملاحظات</button>
+    </form>
+  </div>
+</Admin>

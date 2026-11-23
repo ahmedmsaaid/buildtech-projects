@@ -1,38 +1,90 @@
 ---
-/** Staff dashboard shell: clinic name, navigation and sign-out. */
+/**
+ * Staff dashboard shell. On a computer the navigation is a sidebar; on a
+ * phone it becomes a tab bar at the bottom, the way an app works.
+ */
+import Icon from '../components/Icon.astro';
 import Base from './Base.astro';
 
 interface Props {
   title: string;
+  /** One line under the title. */
+  subtitle?: string;
 }
 
-const { title } = Astro.props;
-const { clinic } = Astro.locals;
+const { title, subtitle } = Astro.props;
+const { clinic, user } = Astro.locals;
 
 const links = [
-  { href: '/admin', label: 'المواعيد' },
-  { href: '/admin/patients', label: 'المرضى' },
-  { href: '/admin/settings', label: 'الإعدادات' },
-];
-const current = Astro.url.pathname.replace(/\/$/, '') || '/admin';
+  { href: '/admin', label: 'المواعيد', icon: 'calendar' },
+  { href: '/admin/patients', label: 'المرضى', icon: 'users' },
+  { href: '/admin/reports', label: 'التقارير', icon: 'chart' },
+  { href: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
+] as const;
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/admin';
+/** A section stays highlighted on its inner pages, e.g. a patient's profile. */
+const isCurrent = (href: string) => (href === '/admin' ? path === href : path.startsWith(href));
 ---
 
 <Base title={`${title} · ${clinic.name}`} accent={clinic.accent} isPrivate>
-  <header class="topbar">
-    <div class="topbar__inner">
-      <span class="topbar__name">{clinic.name}</span>
-      <nav aria-label="أقسام اللوحة">
-        {links.map((link) => <a href={link.href} aria-current={current === link.href ? 'page' : undefined}>{link.label}</a>)}
-      </nav>
-      <a class="button button--small" href={`/${clinic.slug}`} target="_blank" rel="noopener">صفحة الحجز</a>
-      <form method="post" action="/admin/logout">
-        <button class="button button--small" type="submit">خروج</button>
-      </form>
-    </div>
-  </header>
+  <div class="app">
+    <aside class="side">
+      <div class="side__brand">
+        <span class="avatar avatar--sm"><Icon name="pulse" /></span>
+        <span>
+          {clinic.name}
+          <small>{user.name || user.email}</small>
+        </span>
+      </div>
 
-  <main class="page page--wide">
-    <h1>{title}</h1>
-    <slot />
-  </main>
+      <nav class="side__nav" aria-label="أقسام اللوحة">
+        {
+          links.map((link) => (
+            <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+              <Icon name={link.icon} />
+              {link.label}
+            </a>
+          ))
+        }
+      </nav>
+
+      <div class="side__foot">
+        <a class="btn btn--soft btn--sm" href={`/${clinic.slug}`} target="_blank" rel="noopener">
+          <Icon name="external" />
+          صفحة الحجز
+        </a>
+        <form method="post" action="/admin/logout">
+          <button class="btn btn--ghost btn--sm btn--block" type="submit">
+            <Icon name="logout" />
+            خروج
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="pagehead">
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        <div class="row no-print">
+          <slot name="actions" />
+        </div>
+      </header>
+      <slot />
+    </main>
+
+    <nav class="tabbar" aria-label="أقسام اللوحة">
+      {
+        links.map((link) => (
+          <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+            <Icon name={link.icon} />
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
 </Base>

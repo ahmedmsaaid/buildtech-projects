@@ -1,19 +1,20 @@
 ---
 /**
- * A clinic's public booking page: pick a day, a time and a service, then
- * leave a name and mobile number. Works without JavaScript.
+ * A clinic's public booking page: pick a day, a time and a kind of visit,
+ * then leave a name and mobile number. Works without JavaScript.
  */
+import Icon from '../../components/Icon.astro';
 import Base from '../../layouts/Base.astro';
 import { bookAppointment, getBookableDays, getSlots } from '../../lib/appointments';
-import { getClinicBySlug, getServices } from '../../lib/clinics';
+import { getClinicBySlug, getServices, getWorkingWeek } from '../../lib/clinics';
 import { bookingLimiter } from '../../lib/rate-limit';
-import { formatDay, formatMinute, weekdayNames, weekdayOf } from '../../lib/time';
+import { formatDay, formatMinute, formatShortDay, nowIn, periodNames, periodOf, weekdayNames, weekdayOf } from '../../lib/time';
 import { egyptianMobile, text } from '../../lib/validate';
 
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
 if (!clinic) return new Response(null, { status: 404 });
 
-const [days, services] = await Promise.all([getBookableDays(clinic), getServices(clinic.id)]);
+const [days, services, week] = await Promise.all([getBookableDays(clinic), getServices(clinic.id), getWorkingWeek(clinic.id)]);
 
 const problems: string[] = [];
 let typed = { name: '', phone: '', note: '', serviceId: services[0]?.id ?? '', minute: -1 };
@@ -63,22 +64,53 @@ if (Astro.request.method === 'POST') {
 
 if (!days.includes(day)) day = days[0] ?? '';
 const slots = day ? await getSlots(clinic, day) : [];
-const hasFreeSlot = slots.some((slot) => slot.free);
+const freeCount = slots.filter((slot) => slot.free).length;
+
+const periods = (['morning', 'afternoon', 'evening'] as const)
+  .map((period) => ({ period, slots: slots.filter((slot) => periodOf(slot.minute) === period) }))
+  .filter((group) => group.slots.length > 0);
+
+const today = nowIn(clinic.timezone).day;
+const todayHours = week[weekdayOf(today)];
+const isOpenToday = days.includes(today);
+// The week is listed Saturday first, the way it is counted in Egypt.
+const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
+const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).trim().charAt(0);
 ---
 
 <Base title={`احجز ميعادك · ${clinic.name}`} accent={clinic.accent}>
-  <main class="page">
-    <header class="clinic">
-      <h1>{clinic.name}</h1>
-      {clinic.specialty && <p>{clinic.specialty}</p>}
-      {clinic.doctor_name && <p>{clinic.doctor_name}</p>}
-      {clinic.address && <p>{clinic.address}</p>}
-      {clinic.phone && <p><a class="ltr" href={`tel:${clinic.phone}`}>{clinic.phone}</a></p>}
+  <main class="shell">
+    <header class="hero">
+      <div class="hero__id">
+        <span class="avatar" aria-hidden="true">{initial}</span>
+        <div>
+          <h1>{clinic.name}</h1>
+          <p>{[clinic.doctor_name, clinic.specialty].filter(Boolean).join(' · ')}</p>
+        </div>
+      </div>
+
+      <div class="hero__meta">
+        <span class="chip">
+          <Icon name="clock" />
+          {isOpenToday ? `النهارده ${formatMinute(todayHours.open_minute)} – ${formatMinute(todayHours.close_minute)}` : 'إجازة النهارده'}
+        </span>
+        {clinic.address && (
+          clinic.map_url ? (
+            <a class="chip" href={clinic.map_url} target="_blank" rel="noopener"><Icon name="pin" />{clinic.address}</a>
+          ) : (
+            <span class="chip"><Icon name="pin" />{clinic.address}</span>
+          )
+        )}
+        {clinic.phone && <a class="chip ltr" href={`tel:${clinic.phone}`}><Icon name="phone" />{clinic.phone}</a>}
+      </div>
     </header>
+
+    {clinic.about && <p class="card">{clinic.about}</p>}
 
     {
       problems.length > 0 && (
         <div class="notice notice--error" role="alert">
+          <Icon name="ban" />
           <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
         </div>
       )
@@ -89,44 +121,66 @@ const hasFreeSlot = slots.some((slot) => slot.free);
         <p class="card">الحجز الأونلاين مش متاح دلوقتي. كلّم العيادة على التليفون.</p>
       ) : (
         <>
+          <ol class="steps" aria-label="خطوات الحجز">
+            <li>اليوم</li>
+            <li>الساعة</li>
+            <li>بياناتك</li>
+          </ol>
+
           <section class="card" aria-labelledby="day-title">
-            <h2 id="day-title">1. اختار اليوم</h2>
-            <div class="choices">
+            <div class="card__head">
+              <h2 id="day-title" class="card__title"><Icon name="calendar" />اختار اليوم</h2>
+              <span class="muted small">متاح الحجز لحد {clinic.booking_days} يوم قدام</span>
+            </div>
+            <div class="daybar">
               {days.map((option) => (
-                <a class="choice" href={`?date=${option}#time-title`} aria-current={option === day ? 'true' : undefined}>
-                  {weekdayNames[weekdayOf(option)]}
-                  <small>{formatDay(option).replace(`${weekdayNames[weekdayOf(option)]} `, '')}</small>
-                </a>
+                <div class="pick">
+                  <a class="pick__face" href={`?date=${option}#time-title`} aria-current={option === day ? 'true' : undefined}>
+                    <small>{option === today ? 'النهارده' : weekdayNames[weekdayOf(option)]}</small>
+                    <strong>{Number(option.slice(8))}</strong>
+                    <small>{formatShortDay(option).split(' ')[1]}</small>
+                  </a>
+                </div>
               ))}
             </div>
           </section>
 
-          <form class="card" method="post" action={`?date=${day}`}>
+          <form class="stack" method="post" action={`?date=${day}`}>
             <input type="hidden" name="day" value={day} />
 
-            <fieldset>
-              <legend id="time-title">2. اختار الساعة ({formatDay(day)})</legend>
-              {hasFreeSlot ? (
-                <div class="choices">
-                  {slots.map((slot) => (
-                    <label class="choice">
-                      <input type="radio" name="minute" value={slot.minute} disabled={!slot.free} checked={slot.free && slot.minute === typed.minute} required />
-                      <span>{formatMinute(slot.minute)}</span>
-                    </label>
+            <fieldset class="card">
+              <div class="card__head">
+                <legend id="time-title" class="card__title"><Icon name="clock" />اختار الساعة</legend>
+                <span class="muted small">{formatDay(day)} · {freeCount} ميعاد فاضي</span>
+              </div>
+              {freeCount === 0 ? (
+                <p class="muted">مفيش مواعيد فاضية في اليوم ده. اختار يوم تاني.</p>
+              ) : (
+                <div>
+                  {periods.map((group) => (
+                    <div class="slotgroup">
+                      <p class="slotgroup__name">{periodNames[group.period]}</p>
+                      <div class="slots">
+                        {group.slots.map((slot) => (
+                          <label class="pick">
+                            <input type="radio" name="minute" value={slot.minute} disabled={!slot.free} checked={slot.free && slot.minute === typed.minute} required />
+                            <span class="pick__face">{formatMinute(slot.minute)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              ) : (
-                <p class="muted">مفيش مواعيد فاضية في اليوم ده. اختار يوم تاني.</p>
               )}
             </fieldset>
 
-            <fieldset>
-              <legend>3. نوع الزيارة</legend>
-              <div class="choices">
+            <fieldset class="card">
+              <legend class="card__title"><Icon name="pulse" />نوع الزيارة</legend>
+              <div class="services">
                 {services.map((service) => (
-                  <label class="choice">
+                  <label class="pick">
                     <input type="radio" name="service" value={service.id} checked={service.id === typed.serviceId} required />
-                    <span>
+                    <span class="pick__face">
                       {service.name}
                       {service.price > 0 && <small>{service.price} ج</small>}
                     </span>
@@ -135,31 +189,58 @@ const hasFreeSlot = slots.some((slot) => slot.free);
               </div>
             </fieldset>
 
-            <div class="field">
-              <label for="name">الاسم</label>
-              <input id="name" name="name" type="text" value={typed.name} autocomplete="name" required minlength="3" maxlength="80" />
-            </div>
+            <section class="card" aria-labelledby="you-title">
+              <h2 id="you-title" class="card__title"><Icon name="users" />بياناتك</h2>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="name">الاسم</label>
+                  <input id="name" name="name" type="text" value={typed.name} autocomplete="name" required minlength="3" maxlength="80" />
+                </div>
+                <div class="field">
+                  <label for="phone">رقم الموبايل</label>
+                  <input id="phone" class="ltr" name="phone" type="tel" value={typed.phone} autocomplete="tel" inputmode="tel" placeholder="01xxxxxxxxx" required />
+                </div>
+              </div>
+              <div class="field">
+                <label for="note">ملاحظة للعيادة (اختياري)</label>
+                <textarea id="note" name="note" rows="2" maxlength="300">{typed.note}</textarea>
+              </div>
 
-            <div class="field">
-              <label for="phone">رقم الموبايل</label>
-              <input id="phone" class="ltr" name="phone" type="tel" value={typed.phone} autocomplete="tel" inputmode="tel" placeholder="01xxxxxxxxx" required />
-              <p class="hint">العيادة هتفكّرك بالميعاد على الرقم ده.</p>
-            </div>
+              <div class="trap" aria-hidden="true">
+                <label for="website">سيب الخانة دي فاضية</label>
+                <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+              </div>
 
-            <div class="field">
-              <label for="note">ملاحظة للعيادة (اختياري)</label>
-              <textarea id="note" name="note" rows="2" maxlength="300">{typed.note}</textarea>
-            </div>
-
-            <div class="trap" aria-hidden="true">
-              <label for="website">سيب الخانة دي فاضية</label>
-              <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
-            </div>
-
-            <button class="button button--primary" type="submit" disabled={!hasFreeSlot}>أكّد الحجز</button>
+              <button class="btn btn--primary btn--block" type="submit" disabled={freeCount === 0}>
+                <Icon name="check" />
+                أكّد الحجز
+              </button>
+              <p class="hint">
+                العيادة هتفكّرك بالميعاد على رقمك.
+                {clinic.cancel_hours > 0 ? ` تقدر تلغي لحد ${clinic.cancel_hours} ساعة قبل الميعاد.` : ' تقدر تلغي في أي وقت قبل الميعاد.'}
+              </p>
+            </section>
           </form>
         </>
       )
     }
+
+    <details class="card">
+      <summary>مواعيد العمل</summary>
+      <dl class="hours-list">
+        {
+          weekFromSaturday.map((hours) => (
+            <>
+              <dt class:list={{ 'is-today': hours.weekday === weekdayOf(today) }}>{weekdayNames[hours.weekday]}</dt>
+              <dd class:list={{ muted: !hours.is_open, 'is-today': hours.weekday === weekdayOf(today) }}>
+                {hours.is_open ? `${formatMinute(hours.open_minute)} – ${formatMinute(hours.close_minute)}` : 'إجازة'}
+              </dd>
+            </>
+          ))
+        }
+      </dl>
+    </details>
+
+    <p class="foot">نظام الحجز من BuildTech</p>
   </main>
 </Base>

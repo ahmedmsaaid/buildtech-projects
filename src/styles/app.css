@@ -1,27 +1,44 @@
 /*
  * One stylesheet for the patient pages and the staff dashboard.
+ *
  * Every color and size comes from the variables below. --accent is the
- * clinic's own color, set on <body> by the layouts.
+ * clinic's own color, set on <body> by the layouts; the soft and dark
+ * variants are derived from it, so one color restyles the whole product.
  */
 :root {
   --accent: #0f766e;
-  --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
-  --bg: #f6f7f8;
-  --surface: #ffffff;
-  --text: #16202a;
-  --muted: #5b6672;
-  --line: #dde2e7;
-  --danger: #b42318;
-  --warning: #b54708;
-  --success: #067647;
+  --accent-soft: color-mix(in srgb, var(--accent) 9%, white);
+  --accent-line: color-mix(in srgb, var(--accent) 28%, white);
+  --accent-dark: color-mix(in srgb, var(--accent) 78%, black);
 
-  --radius: 0.75rem;
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.5rem;
-  --space-6: 2rem;
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --ink: #0f1b2a;
+  --muted: #64748b;
+  --line: #e3e8ef;
+
+  --ok: #067647;
+  --ok-soft: #e7f6ee;
+  --warn: #b45309;
+  --warn-soft: #fdf1df;
+  --bad: #b42318;
+  --bad-soft: #fdecea;
+  --info: #1d4ed8;
+  --info-soft: #e8effd;
+
+  --radius-sm: 0.625rem;
+  --radius: 0.875rem;
+  --radius-lg: 1.25rem;
+  --shadow-sm: 0 1px 2px rgb(15 27 42 / 6%);
+  --shadow: 0 1px 2px rgb(15 27 42 / 5%), 0 10px 28px rgb(15 27 42 / 7%);
+
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
   --tap: 2.75rem;
 }
 
@@ -34,9 +51,10 @@
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
   line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
@@ -44,57 +62,62 @@ h2,
 h3,
 p,
 ul,
+ol,
+dl,
+dd,
 fieldset {
   margin: 0;
   padding: 0;
 }
 
 h1 {
-  font-size: 1.6rem;
+  font-size: clamp(1.4rem, 1.1rem + 1.4vw, 1.9rem);
   line-height: 1.3;
 }
 
 h2 {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   line-height: 1.4;
 }
 
-ul {
+h3 {
+  font-size: 1rem;
+}
+
+ul,
+ol {
   list-style: none;
 }
 
 fieldset {
-  border: 0;
   min-width: 0;
+  border: 0;
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-dark);
 }
 
-.page {
-  width: min(100% - 2rem, 40rem);
-  margin-inline: auto;
-  padding-block: var(--space-5) var(--space-6);
-  display: grid;
-  gap: var(--space-4);
-}
-
-.page--wide {
-  width: min(100% - 2rem, 62rem);
-}
-
+/*
+ * Layout grids take the width they are given. Without this a grid column
+ * grows to fit its widest child, and a long row pushes the page sideways
+ * on a phone.
+ */
+.app,
+.shell,
+.main,
+.board,
+.stack,
 .card {
-  display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .muted {
   color: var(--muted);
+}
+
+.small {
+  font-size: 0.875rem;
 }
 
 .ltr {
@@ -102,267 +125,219 @@ a {
   unicode-bidi: isolate;
 }
 
-/* Buttons */
-.button {
+.icon {
+  flex-shrink: 0;
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.sr-only,
+.trap {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--s2);
   min-height: var(--tap);
-  padding: var(--space-2) var(--space-5);
+  padding: var(--s2) var(--s5);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  color: var(--text);
+  color: var(--ink);
   font: inherit;
   font-weight: 600;
+  line-height: 1.3;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background 150ms,
+    border-color 150ms,
+    transform 150ms;
 }
 
-.button--primary {
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn--primary {
   border-color: var(--accent);
   background: var(--accent);
   color: #ffffff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
-.button--small {
+.btn--soft {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn--danger {
+  border-color: color-mix(in srgb, var(--bad) 30%, white);
+  color: var(--bad);
+}
+
+.btn--sm {
   min-height: 2.25rem;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--s1) var(--s3);
   font-size: 0.875rem;
 }
 
-.button--danger {
-  color: var(--danger);
+.btn--block {
+  width: 100%;
 }
 
-.button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-.choice input:focus-visible + span {
-  outline: 3px solid color-mix(in srgb, var(--accent) 45%, white);
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    border-color: var(--accent-line);
+  }
+
+  .btn--primary:hover {
+    background: var(--accent-dark);
+  }
+}
+
+:is(.btn, input, select, textarea, summary, a):focus-visible,
+.pick input:focus-visible + * {
+  outline: 3px solid color-mix(in srgb, var(--accent) 40%, white);
   outline-offset: 2px;
 }
 
-/* Forms */
-.field {
+/* ---------- Cards, chips, badges, notices ---------- */
+.card {
   display: grid;
-  gap: var(--space-1);
-}
-
-.field > label,
-legend {
-  font-weight: 600;
-}
-
-legend {
-  margin-block-end: var(--space-2);
-}
-
-input[type='text'],
-input[type='tel'],
-input[type='email'],
-input[type='password'],
-input[type='number'],
-input[type='time'],
-input[type='search'],
-input[type='date'],
-select,
-textarea {
-  width: 100%;
-  min-height: var(--tap);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--s4);
+  padding: var(--s5);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  color: var(--text);
-  font: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
-input[type='color'] {
-  width: 5rem;
-  min-height: var(--tap);
-  padding: var(--space-1);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-/* Inputs that sit in a row beside other controls. */
-input.field--inline {
-  width: auto;
-}
-
-.grow {
-  flex: 1;
-  min-width: 9rem;
-}
-
-.grow-2 {
-  flex: 2;
-  min-width: 9rem;
-}
-
-.hint {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.trap {
-  position: absolute;
-  inset-inline-start: -9999px;
-}
-
-/* Pick-one lists (days, services, time slots): a radio styled as a pill. */
-.choices {
+.card__head {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.choice input {
-  position: absolute;
-  opacity: 0;
-}
-
-.choice span,
-a.choice {
-  display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: var(--tap);
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
+  justify-content: space-between;
+  gap: var(--s2) var(--s4);
+}
+
+.card__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.card__title .icon {
+  color: var(--accent);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.875rem;
   font-weight: 600;
-  line-height: 1.4;
   text-decoration: none;
-  cursor: pointer;
 }
 
-.choice small {
-  color: var(--muted);
-  font-weight: 400;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0.125rem var(--s3);
+  border-radius: 999px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.choice input:checked + span,
-a.choice[aria-current='true'] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #ffffff;
+.badge[data-status='arrived'] {
+  background: var(--warn-soft);
+  color: var(--warn);
 }
 
-.choice input:checked + span small,
-a.choice[aria-current='true'] small {
-  color: inherit;
+.badge[data-status='done'] {
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
-.choice input:disabled + span {
-  background: var(--bg);
-  color: var(--muted);
-  text-decoration: line-through;
-  cursor: not-allowed;
+.badge[data-status='no_show'],
+.badge[data-status='cancelled'] {
+  background: var(--bad-soft);
+  color: var(--bad);
 }
 
-/* Messages */
 .notice {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--line);
-  border-inline-start: 4px solid var(--success);
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border: 1px solid color-mix(in srgb, var(--ok) 25%, white);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-weight: 600;
 }
 
 .notice--error {
-  border-inline-start-color: var(--danger);
-}
-
-/* Clinic header on patient pages */
-.clinic {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-5);
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: #ffffff;
-}
-
-.clinic a {
-  color: inherit;
-}
-
-.summary {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-2) var(--space-4);
-}
-
-.summary dt {
-  color: var(--muted);
-}
-
-.summary dd {
-  margin: 0;
-  font-weight: 600;
-}
-
-/* Dashboard chrome */
-.topbar {
-  border-block-end: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.topbar__inner {
-  width: min(100% - 2rem, 62rem);
-  margin-inline: auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-5);
-  padding-block: var(--space-3);
-}
-
-.topbar__name {
-  font-weight: 700;
-}
-
-.topbar nav {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.topbar nav a {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.topbar nav a[aria-current='page'] {
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: color-mix(in srgb, var(--bad) 25%, white);
+  background: var(--bad-soft);
+  color: var(--bad);
 }
 
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--s2) var(--s3);
 }
 
 .row--spread {
   justify-content: space-between;
 }
 
+.stack {
+  display: grid;
+  gap: var(--s4);
+}
+
+.stack--tight {
+  gap: var(--s1);
+}
+
+.block {
+  display: block;
+}
+
 .grid-2 {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--s4);
 }
 
 @media (min-width: 40rem) {
@@ -371,74 +346,794 @@ a.choice[aria-current='true'] small {
   }
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: var(--space-3);
+.grow {
+  flex: 1;
+  min-width: 9rem;
 }
 
-.stat {
-  padding: var(--space-3) var(--space-4);
+/* ---------- Forms ---------- */
+.field {
+  display: grid;
+  gap: var(--s1);
+}
+
+.field > label,
+legend {
+  font-weight: 600;
+}
+
+legend {
+  margin-block-end: var(--s3);
+}
+
+:is(input:not([type='checkbox'], [type='radio'], [type='color']), select, textarea) {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  transition: border-color 150ms;
+}
+
+:is(input, select, textarea):hover {
+  border-color: var(--accent-line);
+}
+
+input[type='color'] {
+  width: 4.5rem;
+  min-height: var(--tap);
+  padding: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+input[type='checkbox'] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent);
+}
+
+.auto {
+  width: auto !important;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* A radio or link drawn as a selectable tile (days, times, services). */
+.pick {
+  position: relative;
+  display: block;
+}
+
+.pick input {
+  position: absolute;
+  opacity: 0;
+}
+
+.pick__face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    border-color 150ms,
+    color 150ms;
+}
+
+.pick__face small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (hover: hover) {
+  .pick__face:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+
+.pick input:checked + .pick__face,
+a.pick__face[aria-current='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.pick input:checked + .pick__face small,
+a.pick__face[aria-current='true'] small {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.pick input:disabled + .pick__face {
+  border-style: dashed;
+  background: var(--bg);
+  color: color-mix(in srgb, var(--muted) 60%, white);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* =====================================================================
+   Patient pages
+   ===================================================================== */
+.shell {
+  width: min(100% - 2rem, 44rem);
+  margin-inline: auto;
+  padding-block: var(--s5) var(--s7);
+  display: grid;
+  gap: var(--s4);
+}
+
+.hero {
+  position: relative;
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s6) var(--s5);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, var(--accent), var(--accent-dark));
+  color: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+/* Soft circles in the corner, purely decorative. */
+.hero::before,
+.hero::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: -4rem;
+  inset-block-start: -5rem;
+  width: 14rem;
+  height: 14rem;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 8%);
+}
+
+.hero::after {
+  inset-inline-end: 4rem;
+  inset-block-start: 5rem;
+  width: 8rem;
+  height: 8rem;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero__id {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 4rem;
+  height: 4rem;
+  border: 2px solid rgb(255 255 255 / 45%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 16%);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.avatar--sm {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 1.05rem;
+}
+
+.hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.hero .chip {
+  background: rgb(255 255 255 / 16%);
+  color: #ffffff;
+}
+
+.steps {
+  display: flex;
+  gap: var(--s2);
+  counter-reset: step;
+}
+
+.steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  counter-increment: step;
+}
+
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+/* Days scroll sideways on a phone instead of wrapping into a wall of buttons. */
+.daybar {
+  display: flex;
+  gap: var(--s2);
+  padding-block: var(--s1) var(--s2);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+
+.daybar .pick {
+  flex: 0 0 4.75rem;
+  scroll-snap-align: start;
+}
+
+.daybar .pick__face {
+  min-height: 5rem;
+  border-radius: var(--radius);
+}
+
+.daybar strong {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--s2);
+}
+
+.slotgroup + .slotgroup {
+  margin-block-start: var(--s4);
+}
+
+.slotgroup__name {
+  margin-block-end: var(--s2);
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.services {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--s2);
+}
+
+.services .pick__face {
+  align-items: flex-start;
+  min-height: 4rem;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  text-align: start;
+}
+
+.hours-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s1) var(--s5);
+}
+
+.hours-list dt {
+  font-weight: 600;
+}
+
+.hours-list .is-today {
+  color: var(--accent-dark);
+}
+
+details > summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.foot {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+/* The confirmation, drawn as a ticket. */
+.ticket {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.ticket__top {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  padding: var(--s6) var(--s5);
+  background: linear-gradient(140deg, var(--accent), var(--accent-dark));
+  color: #ffffff;
+  text-align: center;
+}
+
+.ticket__top[data-state='cancelled'] {
+  background: linear-gradient(140deg, #6b7280, #374151);
+}
+
+.ticket__mark {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 18%);
+  font-size: 1.5rem;
+}
+
+.ticket__when {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.ticket__body {
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s5);
+  border-block-start: 2px dashed var(--line);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s2) var(--s5);
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  font-weight: 600;
+}
+
+.queue-now {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s4);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+.queue-now__number {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* =====================================================================
+   Staff dashboard
+   ===================================================================== */
+.app {
+  display: grid;
+  min-height: 100vh;
+}
+
+.side {
+  display: none;
+}
+
+.main {
+  width: min(100% - 2rem, 70rem);
+  margin-inline: auto;
+  /* Room for the phone tab bar. */
+  padding-block: var(--s5) 6rem;
+  display: grid;
+  align-content: start;
+  gap: var(--s4);
+}
+
+.tabbar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 10;
+  display: flex;
+  border-block-start: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 -6px 20px rgb(15 27 42 / 6%);
+}
+
+.tabbar a {
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.125rem;
+  padding: var(--s2) var(--s1) var(--s3);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tabbar a[aria-current='page'] {
+  color: var(--accent-dark);
+}
+
+.tabbar .icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+@media (min-width: 60rem) {
+  .app {
+    grid-template-columns: 15.5rem 1fr;
+  }
+
+  .side {
+    position: sticky;
+    inset-block-start: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s5);
+    height: 100vh;
+    padding: var(--s5) var(--s4);
+    border-inline-end: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .main {
+    padding-block-end: var(--s7);
+  }
+
+  .tabbar {
+    display: none;
+  }
+}
+
+.side__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.side__brand small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.side__nav {
+  display: grid;
+  gap: var(--s1);
+}
+
+.side__nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.side__nav a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+@media (hover: hover) {
+  .side__nav a:hover {
+    color: var(--ink);
+  }
+}
+
+.side__foot {
+  display: grid;
+  gap: var(--s2);
+  margin-block-start: auto;
+}
+
+.pagehead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s3) var(--s5);
+}
+
+.pagehead p {
+  color: var(--muted);
+}
+
+/* The week at a glance: one tile per day with its number of bookings. */
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.week a {
+  display: grid;
+  justify-items: center;
+  gap: 0.125rem;
+  padding: var(--s2) var(--s1);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+  color: var(--ink);
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.week a[aria-current='date'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.week a[data-today]:not([aria-current]) {
+  border-color: var(--accent);
+}
+
+.week small {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.week strong {
+  font-size: 1.15rem;
+}
+
+.week__count {
+  padding: 0 var(--s2);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.week a[aria-current='date'] .week__count {
+  background: rgb(255 255 255 / 22%);
+  color: #ffffff;
+}
+
+.week__count[data-empty] {
+  background: transparent;
+  color: var(--muted);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--s3);
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.stat__icon[data-tone='warn'] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.stat__icon[data-tone='ok'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.stat__icon[data-tone='bad'] {
+  background: var(--bad-soft);
+  color: var(--bad);
 }
 
 .stat strong {
   display: block;
   font-size: 1.5rem;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
-/* A day's appointments */
-.visits {
+.stat span {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Day view: the timeline beside the queue and the booking form. */
+.board {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--s4);
+  align-items: start;
+}
+
+@media (min-width: 72rem) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) 21rem;
+  }
+
+  .board__side {
+    position: sticky;
+    inset-block-start: var(--s4);
+  }
+}
+
+.timeline {
+  display: grid;
+  gap: var(--s2);
+}
+
+.tl {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: stretch;
+}
+
+.tl__time {
+  padding-block-start: var(--s3);
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: end;
+}
+
+.tl__free {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-height: var(--tap);
+  padding: var(--s1) var(--s3);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.tl__free[data-past] {
+  opacity: 0.55;
+}
+
+@media (hover: hover) {
+  a.tl__free:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+  }
 }
 
 .visit {
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--s3);
+  padding: var(--s4);
   border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--info);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.visit[data-status='cancelled'],
-.visit[data-status='no_show'] {
+.visit[data-status='arrived'] {
+  border-inline-start-color: var(--warn);
+}
+
+.visit[data-status='done'] {
+  border-inline-start-color: var(--ok);
+}
+
+.visit[data-status='no_show'],
+.visit[data-status='cancelled'] {
+  border-inline-start-color: var(--bad);
   background: var(--bg);
+  box-shadow: none;
 }
 
-.visit__time {
-  font-size: 1.1rem;
+.visit__who {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.visit__who a {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.queue li {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding-block: var(--s2);
+}
+
+.queue li + li {
+  border-block-start: 1px solid var(--line);
+}
+
+.queue__place {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--warn-soft);
+  color: var(--warn);
   font-weight: 700;
 }
 
-.badge {
-  padding: 0 var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
-
-.badge[data-status='arrived'] {
-  border-color: var(--warning);
-  color: var(--warning);
-}
-
-.badge[data-status='done'] {
-  border-color: var(--success);
-  color: var(--success);
-}
-
-.badge[data-status='no_show'],
-.badge[data-status='cancelled'] {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
+/* ---------- Tables, lists, charts ---------- */
 .table-wrap {
   overflow-x: auto;
 }
@@ -450,7 +1145,7 @@ table {
 
 th,
 td {
-  padding: var(--space-3);
+  padding: var(--s3);
   border-block-end: 1px solid var(--line);
   text-align: start;
   white-space: nowrap;
@@ -458,29 +1153,112 @@ td {
 
 th {
   color: var(--muted);
+  font-size: 0.875rem;
   font-weight: 600;
+}
+
+tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* A bar chart made of plain elements: each column's height is its share of the tallest. */
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s1);
+  height: 11rem;
+  padding-block-start: var(--s4);
+}
+
+.bars__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s1);
+  height: 100%;
+  min-width: 0;
+}
+
+.bars__bar {
+  width: min(100%, 2rem);
+  min-height: 3px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: linear-gradient(var(--accent), var(--accent-dark));
+}
+
+.bars__bar[data-empty] {
+  background: var(--line);
+}
+
+.bars__value {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.bars__label {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.meter {
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.split {
+  display: grid;
+  gap: var(--s3);
 }
 
 .hours {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--s3);
 }
 
 .hours__day {
   display: grid;
   grid-template-columns: 7rem 1fr 1fr;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--s3);
 }
 
-/* On a phone the navigation takes its own row under the clinic name and buttons. */
-@media (max-width: 40rem) {
-  .topbar__name {
-    flex: 1;
+.hours__day label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 600;
+}
+
+@media print {
+  .side,
+  .tabbar,
+  .no-print {
+    display: none !important;
   }
 
-  .topbar nav {
-    order: 1;
-    flex-basis: 100%;
+  .main {
+    width: 100%;
+    padding: 0;
   }
 }
