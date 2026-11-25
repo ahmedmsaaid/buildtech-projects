@@ -320,3 +320,36 @@ create table if not exists order_items (
 );
 
 create index if not exists order_items_by_order on order_items (order_id);
+
+-- ---------------------------------------------------------------------------
+-- The platform's own home page, managed from the owner dashboard.
+-- ---------------------------------------------------------------------------
+
+-- Its words, color and picture, as one JSON document in a single row.
+create table if not exists site_settings (
+  id integer primary key default 1 check (id = 1),
+  content jsonb not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+-- Pictures the owner uploaded. Small (the dashboard caps their size), so they
+-- live here instead of needing a separate file store.
+create table if not exists site_images (
+  id text primary key,
+  mime text not null,
+  data bytea not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists site_banners (
+  id text primary key,
+  title text not null,
+  body text not null default '',
+  -- Where the banner's button goes; empty for a banner with no button.
+  link_url text not null default '',
+  link_label text not null default '',
+  image_id text references site_images (id) on delete set null,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);

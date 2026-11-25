@@ -8,6 +8,7 @@
  * unlike customer pages, which wear each customer's own colors.
  */
 import Base from '../layouts/Base.astro';
+import { getBanners, getPlansByProduct, getSiteSettings, periodLabel, readableOn } from '../lib/site';
 
 const WHATSAPP = '201020183845';
 const ask = (message: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
@@ -27,6 +28,12 @@ const products = [
   },
 ] as const;
 
+// The owner sets these from the dashboard (see lib/site.ts).
+const [settings, banners, plansByProduct] = await Promise.all([getSiteSettings(), getBanners(), getPlansByProduct()]);
+const look = `--green: ${settings.accent}; --on-green: ${readableOn(settings.accent)}`;
+/** Only links to this site or to a web address are followed; anything else is dropped. */
+const safeLink = (url: string) => (/^(https?:\/\/|\/|#)/.test(url) ? url : null);
+
 const included = [
   { title: 'لينك باسمك', body: 'صفحة بعنوان نشاطك، تحطها على الكارت والفيسبوك وجوجل.' },
   { title: 'لوحة تحكم بالعربي', body: 'بتدير منها شغلك كله من الموبايل أو الكمبيوتر.' },
@@ -41,16 +48,16 @@ const steps = [
 ];
 ---
 
-<Base title="منتجات BuildTech · أنظمة جاهزة لشغلك" accent="#19c37d">
-  <div class="lp">
+<Base title="منتجات BuildTech · أنظمة جاهزة لشغلك" accent={settings.accent}>
+  <div class="lp" style={look}>
     <header class="lp__bar">
       <a class="lp__brand" href="/" aria-label="BuildTech">
         <svg viewBox="0 0 64 64" width="36" height="36" aria-hidden="true">
           <path d="M32 17v-6" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"></path>
-          <circle cx="32" cy="8.5" r="4" fill="#19c37d"></circle>
+          <circle cx="32" cy="8.5" r="4" fill="var(--green)"></circle>
           <path fill-rule="evenodd" fill="#fff" d="M21 17h22a13 13 0 0 1 13 13v16a13 13 0 0 1-13 13H21a13 13 0 0 1-13-13V30a13 13 0 0 1 13-13zM21 24h22a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H21a7 7 0 0 1-7-7V31a7 7 0 0 1 7-7z"></path>
-          <path d="M21 31l7 6.5-7 6.5" stroke="#19c37d" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
-          <path d="M32 44h11" stroke="#19c37d" stroke-width="4.5" fill="none" stroke-linecap="round"></path>
+          <path d="M21 31l7 6.5-7 6.5" stroke="var(--green)" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M32 44h11" stroke="var(--green)" stroke-width="4.5" fill="none" stroke-linecap="round"></path>
         </svg>
         <span class="lp__word" dir="ltr">Build<span>Tech</span></span>
       </a>
@@ -58,10 +65,11 @@ const steps = [
     </header>
 
     <main>
-      <section class="lp__hero">
+      <section class="lp__hero" data-with-image={settings.heroImageId ? '' : undefined}>
+        <div class="lp__herotext">
         <p class="lp__eyebrow" dir="ltr">&gt; ready_products</p>
-        <h1>نظام كامل لشغلك، <span>جاهز من النهارده</span></h1>
-        <p class="lp__lead">مش هتستنى شهور بناء. بتختار النظام اللي يناسب نشاطك، بنجهّزه باسمك وألوانك، وتبدأ تشتغل عليه.</p>
+        <h1>{settings.heroTitle} {settings.heroHighlight && <span>{settings.heroHighlight}</span>}</h1>
+        <p class="lp__lead">{settings.heroLead}</p>
         <div class="lp__actions">
           <a class="lp__btn lp__btn--main" href={ask('أهلاً، عايز أعرف أكتر عن منتجات BuildTech الجاهزة.')} rel="noopener">كلّمنا على واتساب</a>
           <a class="lp__btn lp__btn--line" href="#products">جرّب من غير تسجيل</a>
@@ -71,7 +79,29 @@ const steps = [
           <li><strong>من غير</strong> تطبيق يتنزّل</li>
           <li><strong>سعر ثابت</strong> من غير مفاجآت</li>
         </ul>
+        </div>
+        {/* Decorative: the headline beside it says what the page is about. */}
+        {settings.heroImageId && <img class="lp__heroimg" src={`/media/${settings.heroImageId}`} alt="" />}
       </section>
+
+      {
+        banners.length > 0 && (
+          <section class="lp__banners" aria-label="عروض وأخبار">
+            {banners.map((banner) => (
+              <article class="lp__banner">
+                {banner.image_id && <img src={`/media/${banner.image_id}`} alt="" loading="lazy" />}
+                <div class="lp__bannertext">
+                  <h2>{banner.title}</h2>
+                  {banner.body && <p class="lp__muted">{banner.body}</p>}
+                  {banner.link_label && safeLink(banner.link_url) && (
+                    <a class="lp__btn lp__btn--main" href={safeLink(banner.link_url)} rel="noopener">{banner.link_label}</a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
 
       <section id="products" class="lp__section" aria-labelledby="products-title">
         <p class="lp__eyebrow" dir="ltr">01 / products</p>
@@ -85,6 +115,20 @@ const steps = [
                 <ul class="lp__features">
                   {product.features.map((feature) => <li>{feature}</li>)}
                 </ul>
+                {
+                  settings.showPlans && (plansByProduct.get(product.key)?.length ?? 0) > 0 && (
+                    <ul class="lp__plans" aria-label={`أسعار ${product.name}`}>
+                      {plansByProduct.get(product.key)?.map((plan) => (
+                        <li>
+                          <span>{plan.name}</span>
+                          <span class="lp__price">
+                            <strong>{plan.price.toLocaleString('en')}</strong> ج <small>{periodLabel(plan.months)}</small>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                }
                 {/* Starts a private demo for this visitor; see pages/try.ts. */}
                 <form class="lp__actions" method="post" action="/try">
                   <input type="hidden" name="product" value={product.key} />
@@ -156,7 +200,9 @@ const steps = [
     --edge: #2c3335;
     --paper: #f3f6f4;
     --dim: #a3aba6;
+    /* The owner can change the brand color; these two arrive on the element itself. */
     --green: #19c37d;
+    --on-green: #101314;
 
     min-height: 100vh;
     color: var(--paper);
@@ -219,15 +265,15 @@ const steps = [
       color 150ms;
   }
 
-  /* Dark text on green: white on this green is too faint to read. */
+  /* The text color is worked out from the brand color, so it always reads (see readableOn). */
   .lp__btn--main {
     border-color: var(--green);
     background: var(--green);
-    color: var(--ink);
+    color: var(--on-green);
   }
 
   .lp__btn:focus-visible {
-    outline: 3px solid rgb(25 195 125 / 55%);
+    outline: 3px solid color-mix(in srgb, var(--green) 55%, transparent);
     outline-offset: 3px;
   }
 
@@ -240,6 +286,7 @@ const steps = [
     .lp__btn--main:hover {
       background: var(--paper);
       border-color: var(--paper);
+      color: var(--ink);
     }
   }
 
@@ -254,9 +301,85 @@ const steps = [
 
   .lp__hero {
     display: grid;
-    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: 2rem;
     padding-block: clamp(2.5rem, 1rem + 7vw, 6rem) clamp(2.5rem, 1.5rem + 4vw, 4.5rem);
+  }
+
+  .lp__herotext {
+    display: grid;
+    gap: 1.25rem;
     max-width: 48rem;
+  }
+
+  .lp__heroimg {
+    width: 100%;
+    max-height: 26rem;
+    border: 1px solid var(--edge);
+    border-radius: 1rem;
+    object-fit: cover;
+  }
+
+  .lp__banners {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: 1rem;
+    padding-block-end: clamp(1rem, 0.5rem + 2vw, 2rem);
+  }
+
+  .lp__banner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--green);
+    border-radius: 0.75rem;
+    background: var(--panel);
+  }
+
+  .lp__banner img {
+    width: 100%;
+    height: 100%;
+    max-height: 14rem;
+    object-fit: cover;
+  }
+
+  .lp__bannertext {
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 0.625rem;
+    padding: 1.5rem;
+  }
+
+  .lp .lp__banner h2 {
+    margin: 0;
+    font-size: 1.4rem;
+  }
+
+  .lp__plans {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .lp__plans li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--edge);
+    border-radius: 0.5rem;
+  }
+
+  .lp__price strong {
+    color: var(--green);
+    font-size: 1.25rem;
+  }
+
+  .lp__price small {
+    color: var(--dim);
   }
 
   .lp h1 {
@@ -423,7 +546,18 @@ const steps = [
     }
   }
 
+  @media (min-width: 48rem) {
+    /* A lone banner with a picture lays it beside the words. */
+    .lp__banner:only-child:has(img) {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    }
+  }
+
   @media (min-width: 64rem) {
+    .lp__hero[data-with-image] {
+      grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    }
+
     .lp__tiles {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
