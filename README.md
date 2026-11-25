@@ -66,8 +66,12 @@ The owner dashboard, plans, subscriptions and the log then work for it unchanged
 
 ## Going live
 
-1. Create a Postgres database (for example a Supabase project) and put its
-   connection string in `DATABASE_URL`.
-2. `npm run migrate` creates the tables.
-3. `npm run create-owner -- <email> "<name>"` adds your owner account and
-   prints its one-time password. Clinics are then added from `/owner`.
+1. Create a Postgres database (for example a Supabase project). Copy its
+   connection string: in Supabase, Connect > Transaction pooler.
+2. Paste it into `.env.deploy` after `DATABASE_URL=`. That file is ignored by
+   git and is read only by the two commands below.
+3. `npm run migrate` creates the tables.
+4. `npm run create-owner -- <email> "<name>"` adds your owner account and
+   prints its one-time password. Customers are then added from `/owner`.
+5. On the host (for example Vercel), set the same `DATABASE_URL` as an
+   environment variable and deploy.

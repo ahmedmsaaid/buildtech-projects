@@ -10,8 +10,8 @@
     "dev": "astro dev --port 4340",
     "build": "astro build",
     "check": "astro check",
-    "migrate": "node scripts/migrate.mjs",
-    "create-owner": "node scripts/create-owner.mjs"
+    "migrate": "node --env-file=.env.deploy scripts/migrate.mjs",
+    "create-owner": "node --env-file=.env.deploy scripts/create-owner.mjs"
   },
   "dependencies": {
     "@astrojs/vercel": "^10.0.8",

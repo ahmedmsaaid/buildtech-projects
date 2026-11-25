@@ -1,6 +1,6 @@
 /**
  * Adds a platform owner account to the production database.
- *   DATABASE_URL=... npm run create-owner -- <email> "<name>"
+ *   npm run create-owner -- <email> "<name>"
  * It prints a one-time password for the account.
  */
 import { randomBytes, scryptSync } from 'node:crypto';
@@ -8,7 +8,7 @@ import postgres from 'postgres';
 
 const [email, name = ''] = process.argv.slice(2);
 const url = process.env.DATABASE_URL;
-if (!url) throw new Error('Set DATABASE_URL first.');
+if (!url) throw new Error('Put the live database link in .env.deploy first.');
 if (!email) throw new Error('Usage: npm run create-owner -- <email> "<name>"');
 
 const password = randomBytes(12).toString('base64url');
