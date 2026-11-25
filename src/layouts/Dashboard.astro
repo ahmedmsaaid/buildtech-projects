@@ -5,6 +5,7 @@
  * bottom. Each product wraps this with its own links (see Admin.astro).
  */
 import Icon from '../components/Icon.astro';
+import { demoHoursLeft } from '../lib/demo';
 import { productOf } from '../lib/products';
 import { themeOf } from '../lib/theme';
 import { daysBetween, formatDay, nowIn } from '../lib/time';
@@ -32,7 +33,10 @@ const product = productOf(account);
 
 // A week before the subscription ends, every page says so.
 const daysLeft = account.paid_until ? daysBetween(nowIn(account.timezone).day, account.paid_until) : null;
-const renewalDue = daysLeft !== null && daysLeft <= 7;
+// A demo has no subscription to renew; it has its own notice instead.
+const isDemo = account.demo_expires_at !== null;
+const renewalDue = !isDemo && daysLeft !== null && daysLeft <= 7;
+const demoAsk = `https://wa.me/201020183845?text=${encodeURIComponent(`أهلاً، جرّبت ${product.customers} وعايز النظام لنشاطي.`)}`;
 
 const home = links[0].href;
 const path = Astro.url.pathname.replace(/\/$/, '') || home;
@@ -88,6 +92,16 @@ const isCurrent = (href: string) => (href === home ? path === href : path.starts
           <slot name="actions" />
         </div>
       </header>
+      {
+        isDemo && account.demo_expires_at && (
+          <div class="demo-note no-print" role="status">
+            <span>
+              <strong>دي نسخة تجريبية.</strong> البيانات مش حقيقية، جرّب براحتك. بتتمسح بعد {demoHoursLeft(account.demo_expires_at)} ساعة.
+            </span>
+            <a class="btn btn--sm btn--primary" href={demoAsk} rel="noopener">عايز النظام لنشاطي</a>
+          </div>
+        )
+      }
       {
         renewalDue && account.paid_until && (
           <p class="notice notice--error no-print" role="status">

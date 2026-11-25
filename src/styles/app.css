@@ -2039,3 +2039,24 @@ body[data-density='compact'] {
 .qr strong {
   font-size: 1.1rem;
 }
+
+/* ---------- Demos ---------- */
+.demo-bar {
+  padding: var(--s1) var(--s4);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.demo-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2) var(--s4);
+  padding: var(--s3) var(--s4);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}

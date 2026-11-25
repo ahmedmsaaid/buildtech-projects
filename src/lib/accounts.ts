@@ -26,11 +26,13 @@ export interface Account {
   /** JSON of theme choices; read it through themeOf() in theme.ts. */
   theme: string;
   timezone: string;
+  /** Set on a visitor's demo (see demo.ts); null for every real customer. */
+  demo_expires_at: string | Date | null;
 }
 
 export const ACCOUNT_COLUMNS = `accounts.id, accounts.product, accounts.slug, accounts.name, accounts.status, accounts.plan_id, accounts.price,
   accounts.period_months, accounts.paid_until, accounts.contact_name, accounts.contact_phone, accounts.owner_note,
-  accounts.accent, accounts.theme, accounts.timezone`;
+  accounts.accent, accounts.theme, accounts.timezone, accounts.demo_expires_at`;
 
 export async function getAccountBySlug(slug: string): Promise<Account | null> {
   const [account] = await query<Account>(`select ${ACCOUNT_COLUMNS} from accounts where slug = $1`, [slug]);

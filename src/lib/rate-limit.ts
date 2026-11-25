@@ -27,3 +27,6 @@ export const bookingLimiter = createLimiter(10, 10 * 60 * 1000);
 
 /** Slows down password guessing. */
 export const signInLimiter = createLimiter(8, 10 * 60 * 1000);
+
+/** A person trying the product needs one demo, perhaps two. This stops a script from making hundreds. */
+export const demoLimiter = createLimiter(4, 60 * 60 * 1000);

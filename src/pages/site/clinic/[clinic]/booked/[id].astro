@@ -49,7 +49,7 @@ const headline: Record<typeof appointment.status, string> = {
 };
 ---
 
-<Base title={`حجزك · ${clinic.name}`} theme={themeOf(clinic)} isPrivate>
+<Base title={`حجزك · ${clinic.name}`} theme={themeOf(clinic)} isPrivate isDemo={clinic.demo_expires_at !== null}>
   {/* On the day itself the page reloads by itself, so the queue stays current. */}
   {isLive && <meta slot="head" http-equiv="refresh" content="45" />}
 

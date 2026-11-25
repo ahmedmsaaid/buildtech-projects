@@ -22,9 +22,11 @@ interface Props {
   accent?: string;
   /** Staff pages are private and must not appear in search results. */
   isPrivate?: boolean;
+  /** Shows a line saying this is a demo with made-up data, so nobody mistakes it for a real business. */
+  isDemo?: boolean;
 }
 
-const { title, theme, accent, isPrivate = false } = Astro.props;
+const { title, theme, accent, isPrivate = false, isDemo = false } = Astro.props;
 // Only a checked hex value or a cleaned theme may reach the page (see theme.ts).
 const color = theme?.accent ?? (accent && isHexColor(accent) ? accent : undefined);
 const body = theme ? bodyAttributes(theme) : color ? { style: `--accent: ${color}` } : {};
@@ -36,13 +38,14 @@ const body = theme ? bodyAttributes(theme) : color ? { style: `--accent: ${color
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title}</title>
-    {isPrivate && <meta name="robots" content="noindex" />}
+    {(isPrivate || isDemo) && <meta name="robots" content="noindex" />}
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content={color ?? '#0f766e'} />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <slot name="head" />
   </head>
   <body {...body}>
+    {isDemo && <p class="demo-bar">نسخة تجريبية من BuildTech · البيانات مش حقيقية</p>}
     <slot />
   </body>
 </html>

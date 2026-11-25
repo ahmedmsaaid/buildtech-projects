@@ -62,7 +62,7 @@ if (Astro.request.method === 'POST' && isOpen) {
 const initial = restaurant.name.trim().charAt(0);
 ---
 
-<Base title={`منيو ${restaurant.name}`} theme={themeOf(restaurant)}>
+<Base title={`منيو ${restaurant.name}`} theme={themeOf(restaurant)} isDemo={restaurant.demo_expires_at !== null}>
   <main class="shell shell--menu">
     <header class="hero">
       <div class="hero__id">

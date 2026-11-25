@@ -29,7 +29,7 @@ const headline: Record<OrderStatus, string> = {
 const backToMenu = `/${restaurant.slug}${order.table_number ? `?t=${order.table_number}` : ''}`;
 ---
 
-<Base title={`طلب رقم ${order.number} · ${restaurant.name}`} theme={themeOf(restaurant)} isPrivate>
+<Base title={`طلب رقم ${order.number} · ${restaurant.name}`} theme={themeOf(restaurant)} isPrivate isDemo={restaurant.demo_expires_at !== null}>
   {isLive && <meta slot="head" http-equiv="refresh" content="20" />}
 
   <main class="shell">

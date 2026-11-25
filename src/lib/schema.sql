@@ -62,6 +62,12 @@ create table if not exists accounts (
 
 create index if not exists accounts_by_product on accounts (product, created_at desc);
 
+-- Set on a demo: a throwaway account a visitor started from the site to try a
+-- product. It is deleted, with everything in it, once this moment has passed.
+-- Null for every real customer.
+alter table accounts add column if not exists demo_expires_at timestamptz;
+create index if not exists accounts_demos on accounts (demo_expires_at) where demo_expires_at is not null;
+
 -- People who sign in to an account's dashboard.
 create table if not exists users (
   id text primary key,

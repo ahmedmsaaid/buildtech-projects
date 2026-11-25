@@ -8,7 +8,6 @@
  * unlike customer pages, which wear each customer's own colors.
  */
 import Base from '../layouts/Base.astro';
-import { usesLocalDatabase } from '../lib/db';
 
 const WHATSAPP = '201020183845';
 const ask = (message: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
@@ -19,14 +18,12 @@ const products = [
     name: 'حجز العيادات',
     line: 'مواعيد عيادتك من غير مكالمات ولا دفتر.',
     features: ['المريض يحجز من لينك باسم العيادة', 'طابور انتظار يتابعه من موبايله', 'تذكير واتساب بضغطة', 'ملف لكل مريض وملاحظاته', 'تقارير الحضور وإيراد كل يوم'],
-    demo: '/demo',
   },
   {
     key: 'restaurant',
     name: 'منيو وطلبات المطاعم',
     line: 'الزبون يطلب من موبايله، والطلب يوصل المطبخ على طول.',
     features: ['كود QR لكل ترابيزة', 'منيو بتعدّله في أي وقت', 'لوحة مطبخ بتتحدّث لوحدها', 'الزبون يتابع طلبه لحد ما يجهز', 'تقارير المبيعات والأكتر طلباً'],
-    demo: '/resto?t=4',
   },
 ] as const;
 
@@ -67,7 +64,7 @@ const steps = [
         <p class="lp__lead">مش هتستنى شهور بناء. بتختار النظام اللي يناسب نشاطك، بنجهّزه باسمك وألوانك، وتبدأ تشتغل عليه.</p>
         <div class="lp__actions">
           <a class="lp__btn lp__btn--main" href={ask('أهلاً، عايز أعرف أكتر عن منتجات BuildTech الجاهزة.')} rel="noopener">كلّمنا على واتساب</a>
-          <a class="lp__btn lp__btn--line" href="#products">شوف المنتجات</a>
+          <a class="lp__btn lp__btn--line" href="#products">جرّب من غير تسجيل</a>
         </div>
         <ul class="lp__facts">
           <li><strong>14 يوم</strong> تجربة</li>
@@ -88,11 +85,13 @@ const steps = [
                 <ul class="lp__features">
                   {product.features.map((feature) => <li>{feature}</li>)}
                 </ul>
-                <div class="lp__actions">
-                  <a class="lp__btn lp__btn--main" href={ask(`أهلاً، عايز أجرّب ${product.name}.`)} rel="noopener">اطلب تجربة</a>
-                  {/* The demo customers exist only in the local development database. */}
-                  {usesLocalDatabase && <a class="lp__btn lp__btn--line" href={product.demo}>شوف التجربة</a>}
-                </div>
+                {/* Starts a private demo for this visitor; see pages/try.ts. */}
+                <form class="lp__actions" method="post" action="/try">
+                  <input type="hidden" name="product" value={product.key} />
+                  <button class="lp__btn lp__btn--main" type="submit">جرّبه دلوقتي</button>
+                  <a class="lp__btn lp__btn--line" href={ask(`أهلاً، عايز ${product.name} لنشاطي.`)} rel="noopener">اطلبه لنشاطك</a>
+                </form>
+                <p class="lp__hint">من غير تسجيل. بتدخل نسخة جاهزة ببيانات تجريبية.</p>
               </article>
             ))
           }
@@ -308,6 +307,17 @@ const steps = [
 
   .lp__muted {
     color: var(--dim);
+  }
+
+  .lp__hint {
+    color: var(--dim);
+    font-size: 0.875rem;
+  }
+
+  .lp__btn {
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
   }
 
   .lp__products,
