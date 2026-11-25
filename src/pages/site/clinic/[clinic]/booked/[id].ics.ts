@@ -4,8 +4,8 @@
  * how the appointment is stored.
  */
 import type { APIRoute } from 'astro';
-import { getAppointment } from '../../../lib/appointments';
-import { getClinicBySlug } from '../../../lib/clinics';
+import { getAppointment } from '../../../../../lib/appointments';
+import { getClinicBySlug } from '../../../../../lib/clinics';
 
 /** 20261128 and 1050 -> "20261128T173000" */
 function stamp(day: string, minute: number): string {

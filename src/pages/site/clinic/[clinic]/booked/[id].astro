@@ -5,13 +5,13 @@
  * The address contains the appointment's random id, which is what keeps it
  * private to the person who booked.
  */
-import Icon from '../../../components/Icon.astro';
-import Base from '../../../layouts/Base.astro';
-import { themeOf } from '../../../lib/theme';
-import { canPatientCancel, getAppointment, getQueuePosition, setAppointmentStatus } from '../../../lib/appointments';
-import { getClinicBySlug } from '../../../lib/clinics';
-import { formatDay, formatMinute, nowIn } from '../../../lib/time';
-import { egyptianMobile, text, whatsappNumber } from '../../../lib/validate';
+import Icon from '../../../../../components/Icon.astro';
+import Base from '../../../../../layouts/Base.astro';
+import { themeOf } from '../../../../../lib/theme';
+import { canPatientCancel, getAppointment, getQueuePosition, setAppointmentStatus } from '../../../../../lib/appointments';
+import { getClinicBySlug } from '../../../../../lib/clinics';
+import { formatDay, formatMinute, nowIn } from '../../../../../lib/time';
+import { egyptianMobile, text, whatsappNumber } from '../../../../../lib/validate';
 
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
 let appointment = clinic && (await getAppointment(clinic.id, Astro.params.id ?? ''));

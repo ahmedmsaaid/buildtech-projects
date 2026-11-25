@@ -39,15 +39,16 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-/** Signs in and sets the cookie. Returns false for a wrong email or password. */
-export async function signIn(cookies: AstroCookies, email: string, password: string): Promise<boolean> {
-  const [user] = await query<{ id: string; password_hash: string }>('select id, password_hash from users where email = $1', [
-    email.trim().toLowerCase(),
-  ]);
-  if (!user || !passwordMatches(password, user.password_hash)) return false;
+/** Signs in and sets the cookie. Returns the user's account id, or null for a wrong email or password. */
+export async function signIn(cookies: AstroCookies, email: string, password: string): Promise<string | null> {
+  const [user] = await query<{ id: string; account_id: string; password_hash: string }>(
+    'select id, account_id, password_hash from users where email = $1',
+    [email.trim().toLowerCase()],
+  );
+  if (!user || !passwordMatches(password, user.password_hash)) return null;
 
   await startSession(cookies, user.id);
-  return true;
+  return user.account_id;
 }
 
 /**

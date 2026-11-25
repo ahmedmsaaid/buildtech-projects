@@ -1,10 +1,24 @@
 ---
-/** Staff sign-in. The middleware sends signed-in users straight to /admin. */
-import Icon from '../../components/Icon.astro';
-import Base from '../../layouts/Base.astro';
-import { signIn } from '../../lib/auth';
-import { signInLimiter } from '../../lib/rate-limit';
-import { text } from '../../lib/validate';
+/**
+ * Sign-in for the staff of any customer. Where they land afterwards depends
+ * on what their account bought: each product has its own dashboard.
+ */
+import Icon from '../components/Icon.astro';
+import Base from '../layouts/Base.astro';
+import { getAccountById } from '../lib/accounts';
+import { currentUser, signIn } from '../lib/auth';
+import { products } from '../lib/products';
+import { signInLimiter } from '../lib/rate-limit';
+import { text } from '../lib/validate';
+
+async function dashboardOf(accountId: string): Promise<string> {
+  const account = await getAccountById(accountId);
+  return (account && products[account.product]?.dashboardPath) || '/';
+}
+
+// Someone already signed in goes straight to their dashboard.
+const signedIn = await currentUser(Astro.cookies);
+if (signedIn && Astro.request.method === 'GET') return Astro.redirect(await dashboardOf(signedIn.account_id));
 
 let failed = false;
 let limited = false;
@@ -16,19 +30,20 @@ if (Astro.request.method === 'POST') {
   const password = typeof form.get('password') === 'string' ? String(form.get('password')) : '';
 
   limited = signInLimiter.isLimited(Astro.clientAddress);
-  if (!limited && (await signIn(Astro.cookies, email, password))) return Astro.redirect('/admin');
+  const accountId = limited ? null : await signIn(Astro.cookies, email, password);
+  if (accountId) return Astro.redirect(await dashboardOf(accountId));
   failed = !limited;
 }
 ---
 
-<Base title="دخول العيادة" isPrivate>
+<Base title="تسجيل الدخول" isPrivate>
   <main class="shell">
     <header class="hero">
       <div class="hero__id">
-        <span class="avatar"><Icon name="pulse" /></span>
+        <span class="avatar"><Icon name="key" /></span>
         <div>
-          <h1>دخول العيادة</h1>
-          <p>تابع مواعيد النهارده وطابور الانتظار من أي جهاز.</p>
+          <h1>تسجيل الدخول</h1>
+          <p>ادخل على لوحة نشاطك من أي جهاز.</p>
         </div>
       </div>
     </header>

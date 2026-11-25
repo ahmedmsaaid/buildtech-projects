@@ -4,7 +4,7 @@
  * adding one entry (and that product's own tables and pages), not editing
  * the dashboard.
  */
-import { getClinicUsage, setUpClinic } from './clinics';
+import { getClinicById, getClinicUsage, setUpClinic } from './clinics';
 
 export interface Product {
   key: string;
@@ -13,8 +13,12 @@ export interface Product {
   customers: string;
   /** Icon name from components/Icon.astro. */
   icon: 'pulse' | 'building';
-  /** Where a customer's staff sign in. */
+  /** Where a customer's staff work. Everyone signs in at /login and is sent here. */
   dashboardPath: string;
+  /** What the customer's public page is called, for buttons that open it. */
+  publicPage: string;
+  /** Puts what this product's dashboard pages need on the request (see env.d.ts). */
+  load(locals: App.Locals, accountId: string): Promise<void>;
   /** Extra questions asked when the owner creates an account of this product. */
   setupFields: { name: string; label: string }[];
   /** Creates the product's own records for a new account. */
@@ -30,6 +34,11 @@ export const products: Record<string, Product> = {
     customers: 'العيادات',
     icon: 'pulse',
     dashboardPath: '/admin',
+    publicPage: 'صفحة الحجز',
+    load: async (locals, accountId) => {
+      const clinic = await getClinicById(accountId);
+      if (clinic) locals.clinic = clinic;
+    },
     setupFields: [
       { name: 'doctor_name', label: 'اسم الدكتور' },
       { name: 'specialty', label: 'التخصص' },

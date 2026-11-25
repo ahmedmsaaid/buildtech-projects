@@ -1,0 +1,134 @@
+---
+/**
+ * The appearance editor: ready-made looks, every style choice, and a live
+ * preview of the customer's public page. Shared by every product's dashboard;
+ * the page that uses it handles saving (see saveAppearance in theme.ts).
+ */
+import Icon from './Icon.astro';
+import type { Account } from '../lib/accounts';
+import { attributeByChoice, fontStackByChoice, presets, themeChoices, themeLabels, themeOf, type Theme, type ThemeKey } from '../lib/theme';
+
+interface Props {
+  account: Account;
+  /** What the public page is called, e.g. "صفحة الحجز". */
+  publicPage: string;
+}
+
+const { account, publicPage } = Astro.props;
+const theme = themeOf(account);
+const keys = Object.keys(themeChoices) as ThemeKey[];
+const labelOf = (key: ThemeKey, choice: string) => (themeLabels[key].choices as Record<string, string>)[choice];
+
+/** A small picture of a preset: its background and its color. */
+function swatchStyle(look: Theme): string {
+  const background = look.mode === 'dark' ? '#161f2a' : look.background === 'warm' ? '#f7f2ea' : look.background === 'white' ? '#ffffff' : '#f3f5f8';
+  return `background: ${background}; border: 1px solid ${look.mode === 'dark' ? '#2a3747' : '#e3e8ef'}`;
+}
+---
+
+<div class="board">
+  <div class="stack">
+    <form class="card" method="post">
+      <h2 class="card__title"><Icon name="palette" />أشكال جاهزة</h2>
+      <p class="hint">اختار شكل كامل بضغطة، وبعدين عدّل فيه براحتك من تحت.</p>
+      <div class="swatches">
+        {
+          presets.map((preset) => (
+            <button class="swatch" type="submit" name="preset" value={preset.key}>
+              <span class="swatch__look" style={swatchStyle(preset.theme)}>
+                <span style={`background: ${preset.theme.accent}`} />
+              </span>
+              {preset.name}
+            </button>
+          ))
+        }
+      </div>
+    </form>
+
+    <form class="card" method="post" data-theme-form>
+      <h2 class="card__title"><Icon name="settings" />تخصيص</h2>
+
+      <div class="field">
+        <label for="accent">اللون الأساسي</label>
+        <div class="row">
+          <input id="accent" name="accent" type="color" value={theme.accent} />
+          <span class="hint">بيلوّن الأزرار ورأس الصفحة والعناصر المختارة.</span>
+        </div>
+      </div>
+
+      {
+        keys.map((key) => (
+          <fieldset>
+            <legend>{themeLabels[key].title}</legend>
+            <div class="options">
+              {themeChoices[key].map((choice) => (
+                <label class="pick">
+                  <input type="radio" name={key} value={choice} checked={theme[key] === choice} />
+                  <span class="pick__face">{labelOf(key, choice)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ))
+      }
+
+      <div class="row">
+        <button class="btn btn--primary" type="submit"><Icon name="check" />حفظ الشكل</button>
+        <span class="hint">المعاينة بتتغير وإنت بتختار، بس الشكل ما بيتطبّقش للزوار غير بعد الحفظ.</span>
+      </div>
+    </form>
+  </div>
+
+  <section class="board__side stack" aria-labelledby="preview-title">
+    <h2 id="preview-title" class="card__title"><Icon name="external" />معاينة {publicPage}</h2>
+    <div class="preview">
+      <iframe src={`/${account.slug}`} title={`معاينة ${publicPage}`} data-theme-preview></iframe>
+    </div>
+  </section>
+</div>
+
+<script define:vars={{ fontStacks: fontStackByChoice, attributeByChoice }}>
+  // Live preview: every change in the form is copied onto this page and onto
+  // the public page in the frame. Nothing is saved until the form is sent.
+  const form = document.querySelector('[data-theme-form]');
+  const frame = document.querySelector('[data-theme-preview]');
+
+  function apply() {
+    const values = Object.fromEntries(new FormData(form));
+    const targets = [document.body];
+    // The frame is this same site, so its page can be restyled directly.
+    if (frame.contentDocument?.body) targets.push(frame.contentDocument.body);
+
+    for (const body of targets) {
+      body.style.setProperty('--accent', values.accent);
+      body.style.setProperty('--font', fontStacks[values.font]);
+      for (const [choice, attribute] of Object.entries(attributeByChoice)) body.setAttribute(attribute, values[choice]);
+    }
+  }
+
+  // The preview scrolls and its day buttons work, but it is for looking:
+  // forms inside it do nothing, and neither do links that lead away from the page.
+  function makeLookOnly() {
+    const page = frame.contentDocument;
+    if (!page) return;
+    page.addEventListener('submit', (event) => event.preventDefault(), true);
+    page.addEventListener(
+      'click',
+      (event) => {
+        const link = event.target.closest('a');
+        if (link && !link.getAttribute('href')?.startsWith('?')) event.preventDefault();
+      },
+      true,
+    );
+  }
+
+  function prepareFrame() {
+    makeLookOnly();
+    apply();
+  }
+
+  form.addEventListener('input', apply);
+  frame.addEventListener('load', prepareFrame);
+  // The frame may have finished loading before this script ran.
+  if (frame.contentDocument?.readyState === 'complete') prepareFrame();
+</script>

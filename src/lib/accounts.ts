@@ -32,6 +32,11 @@ export const ACCOUNT_COLUMNS = `accounts.id, accounts.product, accounts.slug, ac
   accounts.period_months, accounts.paid_until, accounts.contact_name, accounts.contact_phone, accounts.owner_note,
   accounts.accent, accounts.theme, accounts.timezone`;
 
+export async function getAccountBySlug(slug: string): Promise<Account | null> {
+  const [account] = await query<Account>(`select ${ACCOUNT_COLUMNS} from accounts where slug = $1`, [slug]);
+  return account ?? null;
+}
+
 export async function getAccountById(id: string): Promise<Account | null> {
   const [account] = await query<Account>(`select ${ACCOUNT_COLUMNS} from accounts where id = $1`, [id]);
   return account ?? null;

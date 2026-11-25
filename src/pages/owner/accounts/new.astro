@@ -13,7 +13,7 @@ import { nowIn } from '../../../lib/time';
 import { egyptianMobile, text } from '../../../lib/validate';
 
 /** Addresses that already mean something on the site. */
-const RESERVED_SLUGS = ['admin', 'owner', 'api', 'demo'];
+const RESERVED_SLUGS = ['admin', 'owner', 'api', 'demo', 'site', 'login', 'logout', 'suspended', ...productList.map((entry) => entry.dashboardPath.slice(1))];
 const { owner } = Astro.locals;
 
 // The product comes from the address, so choosing another one reloads the right questions and plans.
@@ -72,8 +72,8 @@ if (Astro.request.method === 'POST') {
         <dl class="facts">
           <dt>الصفحة العامة</dt>
           <dd class="ltr">{new URL(`/${typed.slug}`, Astro.url).href}</dd>
-          <dt>لوحة العميل</dt>
-          <dd class="ltr">{new URL(product.dashboardPath, Astro.url).href}</dd>
+          <dt>صفحة الدخول</dt>
+          <dd class="ltr">{new URL('/login', Astro.url).href}</dd>
           <dt>الإيميل</dt>
           <dd class="ltr">{typed.staffEmail}</dd>
           <dt>كلمة السر</dt>

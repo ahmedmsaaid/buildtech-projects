@@ -1,16 +1,22 @@
 /**
- * Guards the two private areas. /admin needs a signed-in clinic account and
- * /owner needs a signed-in platform owner; the two sign-ins are separate.
+ * Guards the private areas.
+ *
+ * /owner needs a signed-in platform owner. Each product's dashboard needs a
+ * signed-in user whose account bought that product; anyone else is sent to
+ * the dashboard that is theirs. The two kinds of sign-in are separate.
  */
 import { defineMiddleware } from 'astro:middleware';
+import { getAccountById } from './lib/accounts';
 import { currentUser } from './lib/auth';
-import { getClinicById } from './lib/clinics';
 import { currentOwner } from './lib/owner-auth';
+import { productList, products } from './lib/products';
+
+const under = (pathname: string, base: string) => pathname === base || pathname.startsWith(`${base}/`);
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
-  if (pathname.startsWith('/owner')) {
+  if (under(pathname, '/owner')) {
     const owner = await currentOwner(context.cookies);
     const onSignIn = pathname === '/owner/login';
 
@@ -21,24 +27,24 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  if (!pathname.startsWith('/admin')) return next();
+  const area = productList.find((product) => under(pathname, product.dashboardPath));
+  if (!area && pathname !== '/suspended') return next();
 
   const user = await currentUser(context.cookies);
-  const onSignIn = pathname === '/admin/login';
-
-  if (!user) return onSignIn ? next() : context.redirect('/admin/login');
-  if (onSignIn) return context.redirect('/admin');
-
-  const clinic = await getClinicById(user.account_id);
-  if (!clinic) return context.redirect('/admin/login');
+  const account = user && (await getAccountById(user.account_id));
+  const own = account && products[account.product];
+  if (!user || !account || !own) return context.redirect('/login');
 
   context.locals.user = user;
-  context.locals.clinic = clinic;
+  context.locals.account = account;
 
-  // A suspended clinic can sign in and sign out, and see why nothing else opens.
-  const allowedWhileSuspended = pathname === '/admin/suspended' || pathname === '/admin/logout';
-  if (clinic.status === 'suspended' && !allowedWhileSuspended) return context.redirect('/admin/suspended');
-  if (clinic.status === 'active' && pathname === '/admin/suspended') return context.redirect('/admin');
+  // A suspended account can only see why nothing opens, and sign out.
+  if (pathname === '/suspended') return account.status === 'suspended' ? next() : context.redirect(own.dashboardPath);
+  if (account.status === 'suspended') return context.redirect('/suspended');
 
+  // A clinic's staff have no business in the restaurant dashboard, and so on.
+  if (area !== own) return context.redirect(own.dashboardPath);
+
+  await own.load(context.locals, account.id);
   return next();
 });

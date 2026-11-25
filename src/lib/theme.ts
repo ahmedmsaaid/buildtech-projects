@@ -4,7 +4,7 @@
  * rest (see "Themes" in app.css). Nothing a clinic types reaches the page as
  * CSS: only the listed values and a checked hex color are ever used.
  */
-import type { Clinic } from './clinics';
+import { updateAppearance, type Account } from './accounts';
 import { isHexColor } from './validate';
 
 export const themeChoices = {
@@ -84,7 +84,7 @@ export function cleanOptions(input: Record<string, unknown>): ThemeOptions {
 }
 
 /** The look of a clinic, from what is stored on it. */
-export function themeOf(clinic: Pick<Clinic, 'accent' | 'theme'>): Theme {
+export function themeOf(clinic: Pick<Account, 'accent' | 'theme'>): Theme {
   let stored: Record<string, unknown> = {};
   try {
     const parsed: unknown = JSON.parse(clinic.theme || '{}');
@@ -115,3 +115,23 @@ export function bodyAttributes(theme: Theme): Record<string, string> {
 
 /** The same mapping for the browser, used by the live preview. */
 export const fontStackByChoice = fontStacks;
+
+/**
+ * Saves what the appearance editor sent: either a ready-made look, or a
+ * color with individual choices. Returns a message when the color is not valid.
+ */
+export async function saveAppearance(accountId: string, form: FormData): Promise<string | null> {
+  const preset = presets.find((candidate) => candidate.key === form.get('preset'));
+  if (preset) {
+    const { accent, ...options } = preset.theme;
+    await updateAppearance(accountId, accent, options);
+    return null;
+  }
+
+  const accent = String(form.get('accent') ?? '').slice(0, 7);
+  if (!isHexColor(accent)) return 'اختار لون صحيح.';
+
+  // Only the listed choices are kept; anything else in the form is ignored.
+  await updateAppearance(accountId, accent, cleanOptions(Object.fromEntries(form)));
+  return null;
+}

@@ -1,0 +1,30 @@
+---
+/** What a customer's staff see while the platform owner has suspended their account. */
+import Icon from '../components/Icon.astro';
+import Base from '../layouts/Base.astro';
+import { themeOf } from '../lib/theme';
+
+const { account } = Astro.locals;
+---
+
+<Base title={`الخدمة متوقفة · ${account.name}`} theme={themeOf(account)} isPrivate>
+  <main class="shell">
+    <header class="hero">
+      <div class="hero__id">
+        <span class="avatar"><Icon name="ban" /></span>
+        <div>
+          <h1>الخدمة متوقفة مؤقتاً</h1>
+          <p>{account.name}</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="card">
+      <p>الاشتراك متوقف، فالصفحة العامة واللوحة مقفولين دلوقتي.</p>
+      <p class="muted">بياناتك كلها محفوظة وهترجع زي ما هي أول ما الاشتراك يتفعّل. كلّم BuildTech للتجديد.</p>
+      <form method="post" action="/logout">
+        <button class="btn" type="submit"><Icon name="logout" />خروج</button>
+      </form>
+    </section>
+  </main>
+</Base>

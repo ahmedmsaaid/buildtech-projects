@@ -3,14 +3,14 @@
  * A clinic's public booking page: pick a day, a time and a kind of visit,
  * then leave a name and mobile number. Works without JavaScript.
  */
-import Icon from '../../components/Icon.astro';
-import Base from '../../layouts/Base.astro';
-import { themeOf } from '../../lib/theme';
-import { bookAppointment, getBookableDays, getSlots } from '../../lib/appointments';
-import { getClinicBySlug, getServices, getWorkingWeek } from '../../lib/clinics';
-import { bookingLimiter } from '../../lib/rate-limit';
-import { formatDay, formatMinute, formatShortDay, nowIn, periodNames, periodOf, weekdayNames, weekdayOf } from '../../lib/time';
-import { egyptianMobile, text } from '../../lib/validate';
+import Icon from '../../../../components/Icon.astro';
+import Base from '../../../../layouts/Base.astro';
+import { themeOf } from '../../../../lib/theme';
+import { bookAppointment, getBookableDays, getSlots } from '../../../../lib/appointments';
+import { getClinicBySlug, getServices, getWorkingWeek } from '../../../../lib/clinics';
+import { bookingLimiter } from '../../../../lib/rate-limit';
+import { formatDay, formatMinute, formatShortDay, nowIn, periodNames, periodOf, weekdayNames, weekdayOf } from '../../../../lib/time';
+import { egyptianMobile, text } from '../../../../lib/validate';
 
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
 if (!clinic) return new Response(null, { status: 404 });
