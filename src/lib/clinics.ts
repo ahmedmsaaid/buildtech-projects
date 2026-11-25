@@ -1,33 +1,30 @@
-/** Reading and changing a clinic's own settings: details, hours and services. */
+/**
+ * The clinic product's own settings: the clinic's profile, hours, days off
+ * and services. A clinic is an account (accounts.ts) plus the profile below;
+ * the two share one id.
+ */
+import { ACCOUNT_COLUMNS, type Account } from './accounts';
 import { newId, query } from './db';
 
-export interface Clinic {
-  id: string;
-  slug: string;
-  name: string;
+export interface ClinicProfile {
   specialty: string;
   doctor_name: string;
   address: string;
   phone: string;
   whatsapp: string;
-  accent: string;
-  /** JSON of theme choices; read it through themeOf() in theme.ts. */
-  theme: string;
-  slot_minutes: number;
-  booking_days: number;
-  timezone: string;
   about: string;
   map_url: string;
+  slot_minutes: number;
+  booking_days: number;
   cancel_hours: number;
-  status: 'active' | 'suspended';
-  plan: 'trial' | 'monthly' | 'yearly';
-  price: number;
-  /** Last day the subscription covers, or null when never paid. */
-  paid_until: string | null;
-  contact_name: string;
-  contact_phone: string;
-  owner_note: string;
 }
+
+/** A clinic as the rest of the product uses it: the account and its profile together. */
+export type Clinic = Account & ClinicProfile;
+
+const CLINIC_COLUMNS = `${ACCOUNT_COLUMNS}, clinics.specialty, clinics.doctor_name, clinics.address, clinics.phone, clinics.whatsapp,
+  clinics.about, clinics.map_url, clinics.slot_minutes, clinics.booking_days, clinics.cancel_hours`;
+const CLINICS = 'accounts join clinics on clinics.id = accounts.id';
 
 export interface WorkingDay {
   weekday: number;
@@ -45,13 +42,33 @@ export interface Service {
 }
 
 export async function getClinicBySlug(slug: string): Promise<Clinic | null> {
-  const [clinic] = await query<Clinic>('select * from clinics where slug = $1', [slug]);
+  const [clinic] = await query<Clinic>(`select ${CLINIC_COLUMNS} from ${CLINICS} where accounts.slug = $1`, [slug]);
   return clinic ?? null;
 }
 
 export async function getClinicById(id: string): Promise<Clinic | null> {
-  const [clinic] = await query<Clinic>('select * from clinics where id = $1', [id]);
+  const [clinic] = await query<Clinic>(`select ${CLINIC_COLUMNS} from ${CLINICS} where accounts.id = $1`, [id]);
   return clinic ?? null;
+}
+
+/**
+ * Turns a new account into a working clinic: its profile, evening hours on
+ * six days, and one kind of visit. The clinic then adjusts all of it in its
+ * own settings. Called by the platform when an account of this product is created.
+ */
+export async function setUpClinic(accountId: string, profile: { doctorName: string; specialty: string; phone: string }): Promise<void> {
+  await query('insert into clinics (id, doctor_name, specialty, phone, whatsapp) values ($1, $2, $3, $4, $4)', [
+    accountId,
+    profile.doctorName,
+    profile.specialty,
+    profile.phone,
+  ]);
+
+  // Saturday to Thursday, 5 to 10 in the evening.
+  for (let weekday = 0; weekday < 7; weekday++) {
+    await saveWorkingDay(accountId, { weekday, is_open: weekday !== 5, open_minute: 1020, close_minute: 1320 });
+  }
+  await addService(accountId, 'كشف', 0);
 }
 
 /** All seven days, Sunday first. Days never saved come back as closed. */
@@ -97,40 +114,27 @@ export async function updateService(clinicId: string, id: string, changes: { nam
   ]);
 }
 
-export type ClinicDetails = Pick<
-  Clinic,
-  | 'name'
-  | 'specialty'
-  | 'doctor_name'
-  | 'address'
-  | 'phone'
-  | 'whatsapp'
-  | 'accent'
-  | 'slot_minutes'
-  | 'booking_days'
-  | 'about'
-  | 'map_url'
-  | 'cancel_hours'
->;
+/** What a clinic edits in its own settings: its name and its whole profile. */
+export type ClinicDetails = { name: string } & ClinicProfile;
 
 export async function updateClinicDetails(clinicId: string, details: ClinicDetails): Promise<void> {
+  // The name belongs to the account; everything else is the clinic's profile.
+  await query('update accounts set name = $2 where id = $1', [clinicId, details.name]);
   await query(
-    `update clinics set name = $2, specialty = $3, doctor_name = $4, address = $5, phone = $6, whatsapp = $7,
-       accent = $8, slot_minutes = $9, booking_days = $10, about = $11, map_url = $12, cancel_hours = $13
+    `update clinics set specialty = $2, doctor_name = $3, address = $4, phone = $5, whatsapp = $6, about = $7, map_url = $8,
+       slot_minutes = $9, booking_days = $10, cancel_hours = $11
      where id = $1`,
     [
       clinicId,
-      details.name,
       details.specialty,
       details.doctor_name,
       details.address,
       details.phone,
       details.whatsapp,
-      details.accent,
-      details.slot_minutes,
-      details.booking_days,
       details.about,
       details.map_url,
+      details.slot_minutes,
+      details.booking_days,
       details.cancel_hours,
     ],
   );
@@ -162,7 +166,20 @@ export async function removeClosedDay(clinicId: string, day: string): Promise<vo
   await query('delete from closed_days where clinic_id = $1 and day = $2', [clinicId, day]);
 }
 
-/** Saves the clinic's color and theme choices. `theme` must already be cleaned (see theme.ts). */
-export async function updateAppearance(clinicId: string, accent: string, theme: Record<string, string>): Promise<void> {
-  await query('update clinics set accent = $2, theme = $3 where id = $1', [clinicId, accent, JSON.stringify(theme)]);
+/** How much a clinic is being used, for the platform owner. */
+export async function getClinicUsage(clinicId: string, since: string): Promise<{ label: string; value: string }[]> {
+  const [usage] = await query<{ bookings: number; online: number; patients: number }>(
+    `select
+       count(*) filter (where day >= $2 and status <> 'cancelled')::int as bookings,
+       count(*) filter (where day >= $2 and status <> 'cancelled' and source = 'online')::int as online,
+       count(distinct patient_phone)::int as patients
+     from appointments where clinic_id = $1`,
+    [clinicId, since],
+  );
+  const onlineShare = usage.bookings === 0 ? 0 : Math.round((usage.online / usage.bookings) * 100);
+  return [
+    { label: 'حجز في 30 يوم', value: String(usage.bookings) },
+    { label: 'مريض', value: String(usage.patients) },
+    { label: 'حجز أونلاين', value: `${onlineShare}%` },
+  ];
 }

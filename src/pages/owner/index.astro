@@ -1,54 +1,105 @@
 ---
-/** Every clinic on the platform: who is active, who needs chasing, and what the subscriptions bring in. */
+/**
+ * The owner's home: every customer of every product, who needs chasing, and
+ * what the subscriptions bring in, in total and per product.
+ */
 import Icon from '../../components/Icon.astro';
 import Owner from '../../layouts/Owner.astro';
-import { getIncomeSince, listClinics, monthlyValue, planLabels, stateLabels, subscriptionState, type SubscriptionState } from '../../lib/platform';
-import { addDays, formatShortDay, nowIn } from '../../lib/time';
+import { getIncomeByProduct, listAccounts, monthlyValue, stateLabels, stateTone, subscriptionState, type SubscriptionState } from '../../lib/platform';
+import { productList, products } from '../../lib/products';
+import { formatShortDay, nowIn } from '../../lib/time';
 
 const today = nowIn('Africa/Cairo').day;
 const search = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 60);
-const filter = Astro.url.searchParams.get('state') ?? '';
+const stateFilter = Astro.url.searchParams.get('state') ?? '';
+const productFilter = Astro.url.searchParams.get('product') ?? '';
 
-const [allClinics, incomeThisMonth] = await Promise.all([listClinics(search, addDays(today, -29)), getIncomeSince(`${today.slice(0, 8)}01`)]);
+const [accounts, income] = await Promise.all([listAccounts(search), getIncomeByProduct(`${today.slice(0, 8)}01`)]);
+const rows = accounts.map((account) => ({ account, state: subscriptionState(account, today) }));
 
-const rows = allClinics.map((clinic) => ({ clinic, state: subscriptionState(clinic, today) }));
-const countOf = (state: SubscriptionState) => rows.filter((row) => row.state === state).length;
-const shown = filter ? rows.filter((row) => row.state === filter) : rows;
+const inProduct = productFilter ? rows.filter((row) => row.account.product === productFilter) : rows;
+const countOf = (state: SubscriptionState) => inProduct.filter((row) => row.state === state).length;
+const shown = stateFilter ? inProduct.filter((row) => row.state === stateFilter) : inProduct;
 
-/** Badge colors reuse the appointment ones: green for fine, amber for soon, red for a problem. */
-const tone: Record<SubscriptionState, string> = { active: 'done', expiring: 'arrived', expired: 'no_show', suspended: 'cancelled' };
-const filters: { state: SubscriptionState; label: string }[] = [
-  { state: 'active', label: 'شغّالة' },
-  { state: 'expiring', label: 'قرّبت تنتهي' },
-  { state: 'expired', label: 'منتهية' },
-  { state: 'suspended', label: 'موقوفة' },
-];
-const link = (state: string) => `/owner?${new URLSearchParams({ ...(search && { q: search }), ...(state && { state }) })}`;
+const incomeTotal = [...income.values()].reduce((sum, amount) => sum + amount, 0);
+const shownIncome = productFilter ? (income.get(productFilter) ?? 0) : incomeTotal;
+const working = countOf('active') + countOf('trial') + countOf('expiring');
+
+const states: SubscriptionState[] = ['active', 'trial', 'expiring', 'expired', 'suspended'];
+/** A link to this page that keeps the other filters. */
+const link = (changes: { state?: string; product?: string }) => {
+  const params = { q: search, product: productFilter, state: stateFilter, ...changes };
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value));
+  return `/owner${query.size ? `?${query}` : ''}`;
+};
 ---
 
-<Owner title="العيادات" subtitle={`${allClinics.length} عيادة على المنصة`}>
-  <a slot="actions" class="btn btn--primary" href="/owner/clinics/new"><Icon name="plus" />عيادة جديدة</a>
+<Owner title="العملاء" subtitle={`${accounts.length} عميل على ${productList.length === 1 ? 'منتج واحد' : `${productList.length} منتجات`}`}>
+  <a slot="actions" class="btn btn--primary" href="/owner/accounts/new"><Icon name="plus" />عميل جديد</a>
 
   <div class="stats">
-    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{countOf('active') + countOf('expiring')}</strong><span>عيادة شغّالة</span></span></p>
-    <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{countOf('expiring')}</strong><span>تنتهي خلال أسبوع</span></span></p>
-    <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{countOf('expired') + countOf('suspended')}</strong><span>منتهية أو موقوفة</span></span></p>
-    <p class="stat"><span class="stat__icon"><Icon name="chart" /></span><span><strong>{monthlyValue(allClinics)}</strong><span>قيمة الاشتراكات شهرياً (ج)</span></span></p>
-    <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{incomeThisMonth}</strong><span>المحصّل الشهر ده (ج)</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{working}</strong><span>عميل شغّال</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{countOf('expiring')}</strong><span>ينتهي خلال أسبوع</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{countOf('expired') + countOf('suspended')}</strong><span>منتهي أو موقوف</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="chart" /></span><span><strong>{monthlyValue(inProduct.map((row) => row.account))}</strong><span>قيمة الاشتراكات شهرياً (ج)</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{shownIncome}</strong><span>المحصّل الشهر ده (ج)</span></span></p>
   </div>
 
+  <section class="card" aria-labelledby="products-title">
+    <div class="card__head">
+      <h2 id="products-title" class="card__title"><Icon name="building" />المنتجات</h2>
+      {productFilter && <a class="btn btn--sm btn--ghost" href={link({ product: '' })}>كل المنتجات</a>}
+    </div>
+    <div class="table-wrap">
+      <table class="cards-on-phone">
+        <thead>
+          <tr>
+            <th>المنتج</th>
+            <th>العملاء</th>
+            <th>شغّالين</th>
+            <th>قيمة شهرية</th>
+            <th>محصّل الشهر ده</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            productList.map((product) => {
+              const own = rows.filter((row) => row.account.product === product.key);
+              const ownWorking = own.filter((row) => row.state === 'active' || row.state === 'trial' || row.state === 'expiring').length;
+              return (
+                <tr>
+                  <td>
+                    <a class="person" href={link({ product: product.key })} aria-current={productFilter === product.key ? 'true' : undefined}>
+                      <span class="avatar avatar--sm"><Icon name={product.icon} /></span>
+                      {product.customers}
+                    </a>
+                  </td>
+                  <td data-label="العملاء">{own.length}</td>
+                  <td data-label="شغّالين">{ownWorking}</td>
+                  <td data-label="قيمة شهرية">{monthlyValue(own.map((row) => row.account))} ج</td>
+                  <td data-label="محصّل الشهر ده">{income.get(product.key) ?? 0} ج</td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <form class="row" method="get" role="search">
-    {filter && <input type="hidden" name="state" value={filter} />}
-    <input class="grow" name="q" type="search" value={search} placeholder="ابحث باسم العيادة أو الدكتور أو اللينك" aria-label="بحث في العيادات" />
+    {stateFilter && <input type="hidden" name="state" value={stateFilter} />}
+    {productFilter && <input type="hidden" name="product" value={productFilter} />}
+    <input class="grow" name="q" type="search" value={search} placeholder="ابحث باسم العميل أو المسؤول أو اللينك" aria-label="بحث في العملاء" />
     <button class="btn" type="submit">بحث</button>
   </form>
 
-  <nav class="row" aria-label="تصفية العيادات">
-    <a class:list={['btn', 'btn--sm', { 'btn--primary': filter === '' }]} href={link('')}>الكل ({rows.length})</a>
+  <nav class="row" aria-label="تصفية العملاء بالحالة">
+    <a class:list={['btn', 'btn--sm', { 'btn--primary': stateFilter === '' }]} href={link({ state: '' })}>الكل ({inProduct.length})</a>
     {
-      filters.map((option) => (
-        <a class:list={['btn', 'btn--sm', { 'btn--primary': filter === option.state }]} href={link(option.state)}>
-          {option.label} ({countOf(option.state)})
+      states.map((state) => (
+        <a class:list={['btn', 'btn--sm', { 'btn--primary': stateFilter === state }]} href={link({ state })}>
+          {stateLabels[state]} ({countOf(state)})
         </a>
       ))
     }
@@ -56,37 +107,35 @@ const link = (state: string) => `/owner?${new URLSearchParams({ ...(search && { 
 
   {
     shown.length === 0 ? (
-      <p class="card muted">{allClinics.length === 0 ? 'لسه مفيش عيادات. ضيف أول عيادة.' : 'مفيش عيادات بالشروط دي.'}</p>
+      <p class="card muted">{accounts.length === 0 ? 'لسه مفيش عملاء. ضيف أول عميل.' : 'مفيش عملاء بالشروط دي.'}</p>
     ) : (
       <div class="card table-wrap">
         <table class="cards-on-phone">
           <thead>
             <tr>
-              <th>العيادة</th>
+              <th>العميل</th>
+              <th>المنتج</th>
               <th>الحالة</th>
               <th>الخطة</th>
-              <th>الاشتراك لحد</th>
-              <th>حجوزات 30 يوم</th>
-              <th>آخر حجز</th>
+              <th>ساري لحد</th>
             </tr>
           </thead>
           <tbody>
-            {shown.map(({ clinic, state }) => (
+            {shown.map(({ account, state }) => (
               <tr>
                 <td>
-                  <a class="person" href={`/owner/clinics/${clinic.id}`}>
-                    <span class="avatar avatar--sm" aria-hidden="true">{clinic.name.charAt(0)}</span>
+                  <a class="person" href={`/owner/accounts/${account.id}`}>
+                    <span class="avatar avatar--sm" aria-hidden="true">{account.name.charAt(0)}</span>
                     <span>
-                      {clinic.name}
-                      <small class="block muted">{clinic.doctor_name || `/${clinic.slug}`}</small>
+                      {account.name}
+                      <small class="block muted">{account.contact_name || `/${account.slug}`}</small>
                     </span>
                   </a>
                 </td>
-                <td data-label="الحالة"><span class="badge" data-status={tone[state]}>{stateLabels[state]}</span></td>
-                <td data-label="الخطة">{planLabels[clinic.plan]}{clinic.price > 0 && ` · ${clinic.price} ج`}</td>
-                <td data-label="الاشتراك لحد">{clinic.paid_until ? formatShortDay(clinic.paid_until) : '·'}</td>
-                <td data-label="حجوزات 30 يوم">{clinic.bookings_30d}</td>
-                <td data-label="آخر حجز">{clinic.last_booking_day ? formatShortDay(clinic.last_booking_day) : 'ما حجزش حد'}</td>
+                <td data-label="المنتج">{products[account.product]?.customer ?? account.product}</td>
+                <td data-label="الحالة"><span class="badge" data-status={stateTone[state]}>{stateLabels[state]}</span></td>
+                <td data-label="الخطة">{account.plan_name ? `${account.plan_name} · ${account.price} ج` : 'من غير خطة'}</td>
+                <td data-label="ساري لحد">{account.paid_until ? formatShortDay(account.paid_until) : '·'}</td>
               </tr>
             ))}
           </tbody>

@@ -29,7 +29,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (!user) return onSignIn ? next() : context.redirect('/admin/login');
   if (onSignIn) return context.redirect('/admin');
 
-  const clinic = await getClinicById(user.clinic_id);
+  const clinic = await getClinicById(user.account_id);
   if (!clinic) return context.redirect('/admin/login');
 
   context.locals.user = user;

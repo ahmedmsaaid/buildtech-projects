@@ -12,7 +12,7 @@ const SESSION_DAYS = 30;
 
 export interface StaffUser {
   id: string;
-  clinic_id: string;
+  account_id: string;
   email: string;
   name: string;
 }
@@ -68,7 +68,7 @@ export async function currentUser(cookies: AstroCookies): Promise<StaffUser | nu
   if (!token) return null;
 
   const [user] = await query<StaffUser>(
-    `select users.id, users.clinic_id, users.email, users.name
+    `select users.id, users.account_id, users.email, users.name
      from sessions join users on users.id = sessions.user_id
      where sessions.token_hash = $1 and sessions.expires_at > now()`,
     [hashToken(token)],

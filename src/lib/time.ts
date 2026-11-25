@@ -89,3 +89,19 @@ export function addMonths(day: string, count: number): string {
   target.setUTCDate(Math.min(date, lastDate));
   return target.toISOString().slice(0, 10);
 }
+
+/** A moment in time as "25 نوفمبر · 3:40 م" on the given clock. */
+export function formatMoment(moment: string | Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(moment));
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+  const day = `${part('year')}-${part('month')}-${part('day')}`;
+  return `${formatShortDay(day)} · ${formatMinute(Number(part('hour')) * 60 + Number(part('minute')))}`;
+}

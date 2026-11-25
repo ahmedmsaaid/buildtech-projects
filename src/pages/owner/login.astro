@@ -2,6 +2,7 @@
 /** Sign-in for the platform owner. The middleware sends signed-in owners straight to /owner. */
 import Icon from '../../components/Icon.astro';
 import Base from '../../layouts/Base.astro';
+import { recordEvent } from '../../lib/events';
 import { ownerSignIn } from '../../lib/owner-auth';
 import { signInLimiter } from '../../lib/rate-limit';
 import { text } from '../../lib/validate';
@@ -16,7 +17,10 @@ if (Astro.request.method === 'POST') {
   const password = typeof form.get('password') === 'string' ? String(form.get('password')) : '';
 
   limited = signInLimiter.isLimited(`owner:${Astro.clientAddress}`);
-  if (!limited && (await ownerSignIn(Astro.cookies, email, password))) return Astro.redirect('/owner');
+  if (!limited && (await ownerSignIn(Astro.cookies, email, password))) {
+    await recordEvent({ actor: email.toLowerCase(), action: 'owner_signed_in' });
+    return Astro.redirect('/owner');
+  }
   failed = !limited;
 }
 ---

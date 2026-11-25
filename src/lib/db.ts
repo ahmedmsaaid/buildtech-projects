@@ -3,7 +3,8 @@
  *
  * With DATABASE_URL set it talks to that Postgres server (production).
  * Without it, it keeps a real Postgres database in the .data folder, so the
- * project runs on a fresh checkout with nothing to install or sign up for.
+ * project runs on a fresh checkout with nothing to install or sign up for,
+ * filled with demo data.
  * Both speak the same SQL, so the rest of the code does not know which is in use.
  */
 import schema from './schema.sql?raw';
@@ -31,8 +32,8 @@ async function connect(): Promise<Runner> {
   await local.exec(schema);
   const run: Runner = async (text, params = []) => (await local.query(text, params)).rows as never;
 
-  const { seedDemoClinic } = await import('./dev-seed');
-  await seedDemoClinic(run);
+  const { seedDemoData } = await import('./dev-seed');
+  await seedDemoData(run);
   return run;
 }
 

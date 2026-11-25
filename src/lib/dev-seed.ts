@@ -2,10 +2,10 @@ import { hashPassword } from './auth';
 import { addDays, nowIn, weekdayOf } from './time';
 
 /**
- * Demo clinic for the local development database, created once when that
+ * Demo data for the local development database, created once when that
  * database is empty. Never runs against a real database (see db.ts).
- * It includes three weeks of made-up visits, so the day view, the patient
- * files and the reports have something to show.
+ * It includes three clinics in different subscription states and three weeks
+ * of made-up visits, so every screen has something to show.
  *
  * Demo sign-in for /admin on localhost:
  */
@@ -49,47 +49,114 @@ function pick(seed: number, size: number): number {
   return Math.abs(Math.floor(Math.sin(seed * 12.9898) * 43758.5453)) % size;
 }
 
-export async function seedDemoClinic(run: Run): Promise<void> {
-  const [existing] = await run<{ id: string }>('select id from clinics limit 1');
+interface DemoClinic {
+  slug: string;
+  name: string;
+  doctor: string;
+  specialty: string;
+  email: string;
+  status: 'active' | 'suspended';
+  plan: 'monthly' | 'yearly' | null;
+  /** Days from today until the subscription ends; negative means it already has. */
+  paidInDays: number;
+}
+
+const clinics: DemoClinic[] = [
+  { slug: 'demo', name: 'عيادة النور', doctor: 'د. أحمد سامي', specialty: 'باطنة وجهاز هضمي', email: DEMO_EMAIL, status: 'active', plan: 'monthly', paidInDays: 5 },
+  { slug: 'smile-dental', name: 'سمايل لطب الأسنان', doctor: 'د. هبة منصور', specialty: 'أسنان وتقويم', email: 'smile-dental@clinic.test', status: 'active', plan: 'yearly', paidInDays: 210 },
+  { slug: 'shifa-kids', name: 'عيادة الشفاء للأطفال', doctor: 'د. كريم عادل', specialty: 'أطفال وحديثي الولادة', email: 'shifa-kids@clinic.test', status: 'suspended', plan: 'monthly', paidInDays: -12 },
+  { slug: 'hayah-derma', name: 'عيادة الحياة للجلدية', doctor: 'د. سلمى فؤاد', specialty: 'جلدية وتجميل', email: 'hayah-derma@clinic.test', status: 'active', plan: null, paidInDays: 11 },
+];
+
+export async function seedDemoData(run: Run): Promise<void> {
+  const [existing] = await run<{ id: string }>('select id from accounts limit 1');
   if (existing) return;
 
-  const clinicId = crypto.randomUUID();
-  await run(
-    `insert into clinics (id, slug, name, specialty, doctor_name, address, phone, whatsapp, slot_minutes, about, timezone)
-     values ($1, 'demo', 'عيادة النور', 'باطنة وجهاز هضمي', 'د. أحمد سامي', '12 شارع التحرير، الدقي، الجيزة', '01000000000', '01000000000', $2,
-       'استشاري الباطنة والجهاز الهضمي والمناظير. خبرة أكتر من 15 سنة في تشخيص وعلاج أمراض المعدة والقولون والكبد.', $3)`,
-    [clinicId, SLOT_MINUTES, TIMEZONE],
-  );
+  const today = nowIn(TIMEZONE).day;
 
-  // Open Saturday to Thursday evening, closed on Friday.
-  for (let weekday = 0; weekday < 7; weekday++) {
-    await run('insert into working_hours (clinic_id, weekday, is_open, open_minute, close_minute) values ($1, $2, $3, $4, $5)', [
-      clinicId,
-      weekday,
-      weekday !== 5,
-      OPEN_MINUTE,
-      OPEN_MINUTE + SLOTS_PER_DAY * SLOT_MINUTES,
+  await run('insert into owners (id, email, password_hash, name) values ($1, $2, $3, $4)', [
+    crypto.randomUUID(),
+    DEMO_OWNER_EMAIL,
+    hashPassword(DEMO_OWNER_PASSWORD),
+    'BuildTech',
+  ]);
+
+  // The catalogue of plans for the clinic product.
+  const plans = {
+    monthly: { id: crypto.randomUUID(), name: 'شهري', months: 1, price: 500 },
+    yearly: { id: crypto.randomUUID(), name: 'سنوي', months: 12, price: 5000 },
+  };
+  for (const [index, plan] of Object.values(plans).entries()) {
+    await run("insert into plans (id, product, name, months, price, sort_order) values ($1, 'clinic', $2, $3, $4, $5)", [
+      plan.id,
+      plan.name,
+      plan.months,
+      plan.price,
+      index + 1,
     ]);
   }
 
-  const serviceIds: string[] = [];
-  for (const [index, [name, price]] of services.entries()) {
+  for (const [index, clinic] of clinics.entries()) {
     const id = crypto.randomUUID();
-    serviceIds.push(id);
-    await run('insert into services (id, clinic_id, name, price, sort_order) values ($1, $2, $3, $4, $5)', [id, clinicId, name, price, index + 1]);
+    const plan = clinic.plan ? plans[clinic.plan] : null;
+
+    await run(
+      `insert into accounts (id, product, slug, name, status, plan_id, price, period_months, paid_until, contact_name, contact_phone, timezone)
+       values ($1, 'clinic', $2, $3, $4, $5, $6, $7, $8, $9, '01000000000', $10)`,
+      [id, clinic.slug, clinic.name, clinic.status, plan?.id ?? null, plan?.price ?? 0, plan?.months ?? 1, addDays(today, clinic.paidInDays), clinic.doctor, TIMEZONE],
+    );
+    await run(
+      `insert into clinics (id, specialty, doctor_name, address, phone, whatsapp, slot_minutes, about)
+       values ($1, $2, $3, '12 شارع التحرير، الدقي، الجيزة', '01000000000', '01000000000', $4, $5)`,
+      [id, clinic.specialty, clinic.doctor, SLOT_MINUTES, index === 0 ? 'استشاري الباطنة والجهاز الهضمي والمناظير. خبرة أكتر من 15 سنة في تشخيص وعلاج أمراض المعدة والقولون والكبد.' : ''],
+    );
+
+    // Open Saturday to Thursday evening, closed on Friday.
+    for (let weekday = 0; weekday < 7; weekday++) {
+      await run('insert into working_hours (clinic_id, weekday, is_open, open_minute, close_minute) values ($1, $2, $3, $4, $5)', [
+        id,
+        weekday,
+        weekday !== 5,
+        OPEN_MINUTE,
+        OPEN_MINUTE + SLOTS_PER_DAY * SLOT_MINUTES,
+      ]);
+    }
+
+    const serviceIds: string[] = [];
+    for (const [order, [name, price]] of services.entries()) {
+      const serviceId = crypto.randomUUID();
+      serviceIds.push(serviceId);
+      await run('insert into services (id, clinic_id, name, price, sort_order) values ($1, $2, $3, $4, $5)', [serviceId, id, name, price, order + 1]);
+    }
+
+    await run('insert into users (id, account_id, email, password_hash, name) values ($1, $2, $3, $4, $5)', [
+      crypto.randomUUID(),
+      id,
+      clinic.email,
+      hashPassword(DEMO_PASSWORD),
+      'الاستقبال',
+    ]);
+
+    // Paying clinics have a payment history.
+    if (plan && clinic.status === 'active') {
+      const lastPaidOn = addDays(today, clinic.paidInDays - plan.months * 30);
+      await run('insert into subscription_payments (id, account_id, amount, paid_on, covers_until, note) values ($1, $2, $3, $4, $5, $6)', [
+        crypto.randomUUID(),
+        id,
+        plan.price,
+        lastPaidOn,
+        addDays(today, clinic.paidInDays),
+        'إنستاباي',
+      ]);
+    }
+
+    // Only the first clinic gets visits: it is the one the clinic demo opens.
+    if (index === 0) await seedVisits(run, id, serviceIds, today);
   }
+}
 
-  await run('insert into users (id, clinic_id, email, password_hash, name) values ($1, $2, $3, $4, $5)', [
-    crypto.randomUUID(),
-    clinicId,
-    DEMO_EMAIL,
-    hashPassword(DEMO_PASSWORD),
-    'الاستقبال',
-  ]);
-
-  // Past days are finished visits with a few no-shows; today and the coming
-  // days are bookings still to happen.
-  const today = nowIn(TIMEZONE).day;
+/** Past days are finished visits with a few no-shows; today and the coming days are bookings still to happen. */
+async function seedVisits(run: Run, clinicId: string, serviceIds: string[], today: string): Promise<void> {
   for (let offset = -21; offset <= 3; offset++) {
     const day = addDays(today, offset);
     if (weekdayOf(day) === 5) continue;
@@ -126,60 +193,6 @@ export async function seedDemoClinic(run: Run): Promise<void> {
         ],
       );
     }
-  }
-
-  await run('insert into owners (id, email, password_hash, name) values ($1, $2, $3, $4)', [
-    crypto.randomUUID(),
-    DEMO_OWNER_EMAIL,
-    hashPassword(DEMO_OWNER_PASSWORD),
-    'BuildTech',
-  ]);
-
-  // The demo clinic pays monthly and is due in a few days, so the renewal notice shows.
-  await run("update clinics set plan = 'monthly', price = 500, paid_until = $2, contact_name = 'د. أحمد سامي', contact_phone = '01000000000' where id = $1", [
-    clinicId,
-    addDays(today, 5),
-  ]);
-  for (const monthsAgo of [2, 1]) {
-    const paidOn = addDays(today, 5 - monthsAgo * 30);
-    await run('insert into subscription_payments (id, clinic_id, amount, paid_on, covers_until, note) values ($1, $2, 500, $3, $4, $5)', [
-      crypto.randomUUID(),
-      clinicId,
-      paidOn,
-      addDays(paidOn, 30),
-      'إنستاباي',
-    ]);
-  }
-
-  // Two more clinics in other states, so the owner's list is not a single row.
-  const others: [slug: string, name: string, doctor: string, specialty: string, status: string, plan: string, price: number, paidUntil: string][] = [
-    ['smile-dental', 'سمايل لطب الأسنان', 'د. هبة منصور', 'أسنان وتقويم', 'active', 'yearly', 5000, addDays(today, 210)],
-    ['shifa-kids', 'عيادة الشفاء للأطفال', 'د. كريم عادل', 'أطفال وحديثي الولادة', 'suspended', 'monthly', 500, addDays(today, -12)],
-  ];
-  for (const [slug, name, doctor, specialty, status, plan, price, paidUntil] of others) {
-    const id = crypto.randomUUID();
-    await run(
-      `insert into clinics (id, slug, name, doctor_name, specialty, status, plan, price, paid_until, contact_name, timezone)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $4, $10)`,
-      [id, slug, name, doctor, specialty, status, plan, price, paidUntil, TIMEZONE],
-    );
-    for (let weekday = 0; weekday < 7; weekday++) {
-      await run('insert into working_hours (clinic_id, weekday, is_open, open_minute, close_minute) values ($1, $2, $3, $4, $5)', [
-        id,
-        weekday,
-        weekday !== 5,
-        OPEN_MINUTE,
-        OPEN_MINUTE + SLOTS_PER_DAY * SLOT_MINUTES,
-      ]);
-    }
-    await run("insert into services (id, clinic_id, name, price, sort_order) values ($1, $2, 'كشف', 300, 1)", [crypto.randomUUID(), id]);
-    await run('insert into users (id, clinic_id, email, password_hash, name) values ($1, $2, $3, $4, $5)', [
-      crypto.randomUUID(),
-      id,
-      `${slug}@clinic.test`,
-      hashPassword(DEMO_PASSWORD),
-      doctor,
-    ]);
   }
 
   await run('insert into patient_notes (clinic_id, patient_phone, note) values ($1, $2, $3)', [

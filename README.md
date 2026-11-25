@@ -21,13 +21,35 @@ Its demo sign-in is in the same file.
 
 ## How it is organised
 
-- `src/lib/schema.sql` — the tables, and the index that prevents double booking.
-- `src/lib/db.ts` — the only code that talks to the database.
-- `src/lib/appointments.ts` — booking rules: free slots, taking one, the day view.
-- `src/lib/clinics.ts` — a clinic's details, hours and services.
+The code has two layers, and so does the database (`src/lib/schema.sql`).
+
+**Platform core** — the same for every product:
+
+- `src/lib/accounts.ts` — an account is one customer of one product.
+- `src/lib/platform.ts` — the owner's side: accounts, plans, subscriptions, payments.
+- `src/lib/events.ts` — the audit trail of everything the owner does.
+- `src/lib/products.ts` — the registry of products. The owner dashboard reads
+  everything it needs about a product from here.
+- `src/lib/theme.ts` — a customer's look.
+- `src/pages/owner/` — the owner dashboard.
+
+**Products** — one so far, clinic booking:
+
+- `src/lib/clinics.ts` — a clinic's profile, hours and services.
+- `src/lib/appointments.ts` — booking rules: free slots, the queue, payments.
 - `src/pages/[clinic]/` — what patients see.
-- `src/pages/admin/` — the staff dashboard, guarded by `src/middleware.ts`.
-- `src/pages/owner/` and `src/lib/platform.ts` — the platform owner's side.
+- `src/pages/admin/` — the clinic's dashboard, guarded by `src/middleware.ts`.
+
+`src/lib/db.ts` is the only code that talks to the database.
+
+### Adding a product
+
+1. Add its tables to `schema.sql`, each hanging off an account id.
+2. Write its module (like `clinics.ts`) with a setup function and a usage function.
+3. Register it in `products.ts`.
+4. Build its public pages and its dashboard.
+
+The owner dashboard, plans, subscriptions and the log then work for it unchanged.
 
 ## Going live
 

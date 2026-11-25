@@ -11,7 +11,6 @@
     "build": "astro build",
     "check": "astro check",
     "migrate": "node scripts/migrate.mjs",
-    "create-clinic": "node scripts/create-clinic.mjs",
     "create-owner": "node scripts/create-owner.mjs"
   },
   "dependencies": {

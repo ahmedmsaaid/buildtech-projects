@@ -12,13 +12,15 @@ const { title, subtitle } = Astro.props;
 const { owner } = Astro.locals;
 
 const links = [
-  { href: '/owner', label: 'العيادات', icon: 'building' },
-  { href: '/owner/clinics/new', label: 'عيادة جديدة', icon: 'plus' },
+  { href: '/owner', label: 'العملاء', icon: 'building' },
+  { href: '/owner/accounts/new', label: 'عميل جديد', icon: 'plus' },
+  { href: '/owner/plans', label: 'الخطط', icon: 'wallet' },
+  { href: '/owner/log', label: 'السجل', icon: 'note' },
 ] as const;
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/owner';
-/** A clinic's own page belongs to the clinics list, not to "new clinic". */
-const isCurrent = (href: string) => (href === '/owner' ? path === href || (path.startsWith('/owner/clinics/') && path !== '/owner/clinics/new') : path === href);
+/** A customer's own page belongs to the customers list, not to "new customer". */
+const isCurrent = (href: string) => (href === '/owner' ? path === href || (path.startsWith('/owner/accounts/') && path !== '/owner/accounts/new') : path === href);
 ---
 
 <Base title={`${title} · لوحة المنصة`} accent="#1f3a5f" isPrivate>
