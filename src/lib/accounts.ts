@@ -44,6 +44,29 @@ export async function getAccountById(id: string): Promise<Account | null> {
   return account ?? null;
 }
 
+export interface HostAccount {
+  slug: string;
+  product: string;
+  name: string;
+}
+
+// Every request asks which customer its address belongs to, so answers are
+// remembered for a minute rather than asked of the database each time.
+const HOST_MEMORY_MS = 60_000;
+const hosts = new Map<string, { account: HostAccount | null; at: number }>();
+
+/** The customer whose own address this is, or null for the platform's address and any other. */
+export async function getAccountOnHost(host: string): Promise<HostAccount | null> {
+  const known = hosts.get(host);
+  if (known && Date.now() - known.at < HOST_MEMORY_MS) return known.account;
+
+  const [account] = await query<HostAccount>('select slug, product, name from accounts where domain = $1', [host]);
+  // Addresses come from the request, so the memory is capped: a flood of made-up ones cannot grow it.
+  if (hosts.size > 500) hosts.clear();
+  hosts.set(host, { account: account ?? null, at: Date.now() });
+  return account ?? null;
+}
+
 /** Saves an account's color and theme choices. `theme` must already be cleaned (see theme.ts). */
 export async function updateAppearance(accountId: string, accent: string, theme: Record<string, string>): Promise<void> {
   await query('update accounts set accent = $2, theme = $3 where id = $1', [accountId, accent, JSON.stringify(theme)]);

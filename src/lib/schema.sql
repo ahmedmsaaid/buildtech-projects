@@ -68,6 +68,12 @@ create index if not exists accounts_by_product on accounts (product, created_at 
 alter table accounts add column if not exists demo_expires_at timestamptz;
 create index if not exists accounts_demos on accounts (demo_expires_at) where demo_expires_at is not null;
 
+-- A web address of the customer's own, e.g. elnour-clinic.vercel.app, in
+-- lower case. A visit to it opens this customer's page instead of the
+-- platform's home page (see middleware.ts). Null for customers without one.
+alter table accounts add column if not exists domain text;
+create unique index if not exists accounts_domain on accounts (domain) where domain is not null;
+
 -- People who sign in to an account's dashboard.
 create table if not exists users (
   id text primary key,

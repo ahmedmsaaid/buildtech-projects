@@ -3,10 +3,13 @@
  * signed-in user whose account bought that product; anyone else is sent to
  * the dashboard that is theirs.
  *
+ * It also gives a customer's own address (see accounts.domain) its meaning:
+ * there, the front page is that customer's page, not the platform's.
+ *
  * The platform owner's dashboard is a separate project with its own sign-in.
  */
 import { defineMiddleware } from 'astro:middleware';
-import { getAccountById } from './lib/accounts';
+import { getAccountById, getAccountOnHost } from './lib/accounts';
 import { currentUser } from './lib/auth';
 import { productList, products } from './lib/products';
 
@@ -14,6 +17,16 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
+
+  // The address the visitor typed. Behind the host's proxy it arrives in the
+  // forwarded header. It only chooses which public page to show, never who is
+  // signed in, so a made-up value gains nothing.
+  const host = (context.request.headers.get('x-forwarded-host') ?? context.request.headers.get('host') ?? '').split(',')[0].trim().toLowerCase();
+  const hostAccount = host ? await getAccountOnHost(host) : null;
+  if (hostAccount) {
+    context.locals.hostAccount = hostAccount;
+    if (pathname === '/' && products[hostAccount.product]) return next(`/site/${hostAccount.product}/${hostAccount.slug}/${context.url.search}`);
+  }
 
   const area = productList.find((product) => under(pathname, product.dashboardPath));
   if (!area && pathname !== '/suspended') return next();

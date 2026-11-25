@@ -37,6 +37,8 @@ if (Astro.request.method === 'POST') {
   failed = !limited;
 }
 
+// On a customer's own address the page is theirs: their name, and no offer to try other products.
+const { hostAccount } = Astro.locals;
 // Set when someone asked for more demos than one person needs (see pages/try.ts).
 const demoLater = Astro.url.searchParams.get('demo') === 'later';
 ---
@@ -69,7 +71,7 @@ const demoLater = Astro.url.searchParams.get('demo') === 'later';
     <main class="auth__panel">
       <section class="auth__card" aria-labelledby="signin-title">
         <h2 id="signin-title">تسجيل الدخول</h2>
-        <p class="auth__dim">ادخل على لوحة نشاطك.</p>
+        <p class="auth__dim">{hostAccount ? `لوحة ${hostAccount.name}` : 'ادخل على لوحة نشاطك.'}</p>
 
         {failed && <p class="auth__alert" role="alert">الإيميل أو كلمة السر غلط.</p>}
         {limited && <p class="auth__alert" role="alert">محاولات كتير. جرّب تاني بعد عشر دقايق.</p>}
@@ -88,7 +90,7 @@ const demoLater = Astro.url.searchParams.get('demo') === 'later';
         <p class="auth__dim auth__small">نسيت كلمة السر؟ كلّم BuildTech ونعملك واحدة جديدة.</p>
       </section>
 
-      <section class="auth__card auth__card--try" aria-labelledby="try-title">
+      {!hostAccount && <section class="auth__card auth__card--try" aria-labelledby="try-title">
         <h2 id="try-title">لسه مش عميل؟</h2>
         <p class="auth__dim">جرّب أي نظام دلوقتي من غير تسجيل، بنسخة جاهزة فيها بيانات تجريبية.</p>
         {demoLater && <p class="auth__alert" role="alert">جرّبت كذا مرة قريب. استنى شوية وجرّب تاني.</p>}
@@ -102,7 +104,7 @@ const demoLater = Astro.url.searchParams.get('demo') === 'later';
             ))
           }
         </div>
-      </section>
+      </section>}
     </main>
   </div>
 </Base>

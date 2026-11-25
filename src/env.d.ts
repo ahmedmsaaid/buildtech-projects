@@ -11,6 +11,8 @@ declare namespace App {
     /** On every product dashboard page, and on /suspended. */
     user: import('./lib/auth').StaffUser;
     account: import('./lib/accounts').Account;
+    /** Set when the visitor came through a customer's own address rather than the platform's. */
+    hostAccount?: import('./lib/accounts').HostAccount;
     /** On the clinic dashboard (/admin). */
     clinic: import('./lib/clinics').Clinic;
     /** On the restaurant dashboard (/restaurant). */
