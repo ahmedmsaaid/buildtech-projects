@@ -1,47 +1,421 @@
 ---
 /**
- * The platform's front door. Customers each have their own address
- * (/<slug>) and sign in at /login; this page is for someone who arrives
- * at the bare address.
+ * The platform's front door, for someone who arrives at the bare address:
+ * what BuildTech's ready-made products are, and how to get one.
+ * Customers each have their own address (/<slug>) and sign in at /login.
+ *
+ * This page wears the BuildTech brand (dark ink, green, the robot mark),
+ * unlike customer pages, which wear each customer's own colors.
  */
-import Icon from '../components/Icon.astro';
 import Base from '../layouts/Base.astro';
 import { usesLocalDatabase } from '../lib/db';
 
-const offers = [
-  { icon: 'pulse', title: 'حجز العيادات', body: 'المريض يحجز من لينك باسم العيادة، ويتابع دوره من موبايله. الاستقبال يدير اليوم كله من لوحة واحدة.', demo: '/demo' },
-  { icon: 'building', title: 'منيو وطلبات المطاعم', body: 'الزبون يمسح كود الترابيزة ويطلب من موبايله، والطلب يوصل المطبخ على طول.', demo: '/resto' },
+const WHATSAPP = '201020183845';
+const ask = (message: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+
+const products = [
+  {
+    key: 'clinic',
+    name: 'حجز العيادات',
+    line: 'مواعيد عيادتك من غير مكالمات ولا دفتر.',
+    features: ['المريض يحجز من لينك باسم العيادة', 'طابور انتظار يتابعه من موبايله', 'تذكير واتساب بضغطة', 'ملف لكل مريض وملاحظاته', 'تقارير الحضور وإيراد كل يوم'],
+    demo: '/demo',
+  },
+  {
+    key: 'restaurant',
+    name: 'منيو وطلبات المطاعم',
+    line: 'الزبون يطلب من موبايله، والطلب يوصل المطبخ على طول.',
+    features: ['كود QR لكل ترابيزة', 'منيو بتعدّله في أي وقت', 'لوحة مطبخ بتتحدّث لوحدها', 'الزبون يتابع طلبه لحد ما يجهز', 'تقارير المبيعات والأكتر طلباً'],
+    demo: '/resto?t=4',
+  },
 ] as const;
+
+const included = [
+  { title: 'لينك باسمك', body: 'صفحة بعنوان نشاطك، تحطها على الكارت والفيسبوك وجوجل.' },
+  { title: 'لوحة تحكم بالعربي', body: 'بتدير منها شغلك كله من الموبايل أو الكمبيوتر.' },
+  { title: 'شكلك وألوانك', body: 'تختار اللون والخط والشكل، وصفحتك تتغيّر في لحظة.' },
+  { title: 'من غير تطبيق يتنزّل', body: 'بيشتغل من المتصفح على أي موبايل، وعميلك مش محتاج ينزّل حاجة.' },
+];
+
+const steps = [
+  { title: 'نتكلم', body: 'تقولنا نشاطك وإحنا نوريك النظام شغّال.' },
+  { title: 'نجهّز حسابك', body: 'بنعمل صفحتك ولوحتك ببياناتك وألوانك.' },
+  { title: 'تبدأ تشتغل', body: 'تستلم اللينك وبيانات الدخول، وتجرّب 14 يوم.' },
+];
 ---
 
-<Base title="منتجات BuildTech">
-  <main class="shell">
-    <header class="hero">
-      <div class="hero__id">
-        <span class="avatar"><Icon name="building" /></span>
-        <div>
-          <h1>منتجات BuildTech</h1>
-          <p>أنظمة جاهزة لشغلك، بتشتغل من المتصفح زي التطبيق.</p>
-        </div>
-      </div>
-      <div class="row">
-        <a class="btn" href="/login"><Icon name="key" />دخول العملاء</a>
-      </div>
+<Base title="منتجات BuildTech · أنظمة جاهزة لشغلك" accent="#19c37d">
+  <div class="lp">
+    <header class="lp__bar">
+      <a class="lp__brand" href="/" aria-label="BuildTech">
+        <svg viewBox="0 0 64 64" width="36" height="36" aria-hidden="true">
+          <path d="M32 17v-6" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"></path>
+          <circle cx="32" cy="8.5" r="4" fill="#19c37d"></circle>
+          <path fill-rule="evenodd" fill="#fff" d="M21 17h22a13 13 0 0 1 13 13v16a13 13 0 0 1-13 13H21a13 13 0 0 1-13-13V30a13 13 0 0 1 13-13zM21 24h22a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H21a7 7 0 0 1-7-7V31a7 7 0 0 1 7-7z"></path>
+          <path d="M21 31l7 6.5-7 6.5" stroke="#19c37d" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M32 44h11" stroke="#19c37d" stroke-width="4.5" fill="none" stroke-linecap="round"></path>
+        </svg>
+        <span class="lp__word" dir="ltr">Build<span>Tech</span></span>
+      </a>
+      <a class="lp__btn lp__btn--line" href="/login">دخول العملاء</a>
     </header>
 
-    <div class="grid-2">
-      {
-        offers.map((offer) => (
-          <section class="card">
-            <h2 class="card__title"><Icon name={offer.icon} />{offer.title}</h2>
-            <p class="muted">{offer.body}</p>
-            {/* The demo customers exist only in the local development database. */}
-            {usesLocalDatabase && <div><a class="btn btn--sm btn--soft" href={offer.demo}>شوف التجربة</a></div>}
-          </section>
-        ))
-      }
-    </div>
+    <main>
+      <section class="lp__hero">
+        <p class="lp__eyebrow" dir="ltr">&gt; ready_products</p>
+        <h1>نظام كامل لشغلك، <span>جاهز من النهارده</span></h1>
+        <p class="lp__lead">مش هتستنى شهور بناء. بتختار النظام اللي يناسب نشاطك، بنجهّزه باسمك وألوانك، وتبدأ تشتغل عليه.</p>
+        <div class="lp__actions">
+          <a class="lp__btn lp__btn--main" href={ask('أهلاً، عايز أعرف أكتر عن منتجات BuildTech الجاهزة.')} rel="noopener">كلّمنا على واتساب</a>
+          <a class="lp__btn lp__btn--line" href="#products">شوف المنتجات</a>
+        </div>
+        <ul class="lp__facts">
+          <li><strong>14 يوم</strong> تجربة</li>
+          <li><strong>من غير</strong> تطبيق يتنزّل</li>
+          <li><strong>سعر ثابت</strong> من غير مفاجآت</li>
+        </ul>
+      </section>
 
-    <p class="foot">عايز نظام لنشاطك؟ كلّم BuildTech.</p>
-  </main>
+      <section id="products" class="lp__section" aria-labelledby="products-title">
+        <p class="lp__eyebrow" dir="ltr">01 / products</p>
+        <h2 id="products-title">المنتجات</h2>
+        <div class="lp__products">
+          {
+            products.map((product) => (
+              <article class="lp__product">
+                <h3>{product.name}</h3>
+                <p class="lp__muted">{product.line}</p>
+                <ul class="lp__features">
+                  {product.features.map((feature) => <li>{feature}</li>)}
+                </ul>
+                <div class="lp__actions">
+                  <a class="lp__btn lp__btn--main" href={ask(`أهلاً، عايز أجرّب ${product.name}.`)} rel="noopener">اطلب تجربة</a>
+                  {/* The demo customers exist only in the local development database. */}
+                  {usesLocalDatabase && <a class="lp__btn lp__btn--line" href={product.demo}>شوف التجربة</a>}
+                </div>
+              </article>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="lp__section" aria-labelledby="included-title">
+        <p class="lp__eyebrow" dir="ltr">02 / included</p>
+        <h2 id="included-title">مع أي منتج بتستلم</h2>
+        <ul class="lp__tiles">
+          {
+            included.map((item) => (
+              <li>
+                <h3>{item.title}</h3>
+                <p class="lp__muted">{item.body}</p>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section class="lp__section" aria-labelledby="steps-title">
+        <p class="lp__eyebrow" dir="ltr">03 / start</p>
+        <h2 id="steps-title">بتبدأ إزاي</h2>
+        <ol class="lp__steps">
+          {
+            steps.map((step) => (
+              <li>
+                <h3>{step.title}</h3>
+                <p class="lp__muted">{step.body}</p>
+              </li>
+            ))
+          }
+        </ol>
+      </section>
+
+      <section class="lp__cta">
+        <h2>نشاطك مش في القايمة؟</h2>
+        <p class="lp__muted">قولنا بتشتغل في إيه. النشاطات اللي بتتطلب أكتر بنبنيلها منتج جاهز الأول.</p>
+        <a class="lp__btn lp__btn--main" href={ask('أهلاً، نشاطي مش في القايمة وعايز أسأل عن نظام له.')} rel="noopener">اقترح نشاطك</a>
+      </section>
+    </main>
+
+    <footer class="lp__foot">
+      <span dir="ltr">© BuildTech</span>
+      <a href="/login">دخول العملاء</a>
+    </footer>
+  </div>
 </Base>
+
+<style is:global>
+  /* The landing page is dark edge to edge, unlike customer pages. */
+  body:has(.lp) {
+    background: #101314;
+  }
+</style>
+
+<style>
+  .lp {
+    --ink: #101314;
+    --panel: #181c1d;
+    --edge: #2c3335;
+    --paper: #f3f6f4;
+    --dim: #a3aba6;
+    --green: #19c37d;
+
+    min-height: 100vh;
+    color: var(--paper);
+    /* The faint grid of the BuildTech brand. */
+    background-image:
+      linear-gradient(rgb(243 246 244 / 4%) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(243 246 244 / 4%) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .lp__bar,
+  .lp main,
+  .lp__foot {
+    width: min(100% - 2rem, 68rem);
+    margin-inline: auto;
+  }
+
+  .lp__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 1.25rem;
+  }
+
+  .lp__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: #ffffff;
+    text-decoration: none;
+  }
+
+  .lp__word {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .lp__word span,
+  .lp h1 span {
+    color: var(--green);
+  }
+
+  .lp__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.5rem;
+    border: 1px solid var(--edge);
+    border-radius: 0.5rem;
+    color: var(--paper);
+    font-weight: 700;
+    line-height: 1.3;
+    text-decoration: none;
+    transition:
+      background 150ms,
+      border-color 150ms,
+      color 150ms;
+  }
+
+  /* Dark text on green: white on this green is too faint to read. */
+  .lp__btn--main {
+    border-color: var(--green);
+    background: var(--green);
+    color: var(--ink);
+  }
+
+  .lp__btn:focus-visible {
+    outline: 3px solid rgb(25 195 125 / 55%);
+    outline-offset: 3px;
+  }
+
+  @media (hover: hover) {
+    .lp__btn--line:hover {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .lp__btn--main:hover {
+      background: var(--paper);
+      border-color: var(--paper);
+    }
+  }
+
+  .lp__eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--green);
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.875rem;
+    /* Written left to right, but it sits on the same side as the Arabic headings. */
+    text-align: end;
+  }
+
+  .lp__hero {
+    display: grid;
+    gap: 1.25rem;
+    padding-block: clamp(2.5rem, 1rem + 7vw, 6rem) clamp(2.5rem, 1.5rem + 4vw, 4.5rem);
+    max-width: 48rem;
+  }
+
+  .lp h1 {
+    font-size: clamp(2rem, 1.2rem + 3.6vw, 3.75rem);
+    line-height: 1.2;
+  }
+
+  .lp__lead {
+    color: var(--dim);
+    font-size: clamp(1.05rem, 0.98rem + 0.36vw, 1.25rem);
+    max-width: 38rem;
+  }
+
+  .lp__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .lp__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+    padding-block-start: 1.25rem;
+    border-block-start: 1px solid var(--edge);
+    color: var(--dim);
+  }
+
+  .lp__facts strong {
+    color: var(--paper);
+  }
+
+  .lp__section {
+    padding-block: clamp(2rem, 1.25rem + 3vw, 3.5rem);
+    scroll-margin-block-start: 1rem;
+  }
+
+  .lp h2 {
+    margin-block-end: 1.5rem;
+    font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.25rem);
+    line-height: 1.3;
+  }
+
+  .lp h3 {
+    font-size: 1.15rem;
+    line-height: 1.4;
+  }
+
+  .lp__muted {
+    color: var(--dim);
+  }
+
+  .lp__products,
+  .lp__tiles,
+  .lp__steps {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .lp__product,
+  .lp__tiles li,
+  .lp__steps li,
+  .lp__cta {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--edge);
+    border-radius: 0.75rem;
+    background: var(--panel);
+  }
+
+  .lp__product h3 {
+    font-size: 1.5rem;
+  }
+
+  .lp__features {
+    display: grid;
+    gap: 0.5rem;
+    padding-block: 0.75rem;
+    border-block: 1px solid var(--edge);
+  }
+
+  .lp__features li {
+    display: flex;
+    gap: 0.625rem;
+  }
+
+  /* The prompt mark from the BuildTech robot's screen. */
+  .lp__features li::before {
+    content: '>';
+    color: var(--green);
+    font-family: Consolas, 'Courier New', monospace;
+    font-weight: 700;
+  }
+
+  .lp__steps {
+    counter-reset: step;
+  }
+
+  .lp__steps li {
+    counter-increment: step;
+  }
+
+  .lp__steps li::before {
+    content: '0' counter(step);
+    color: var(--green);
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    direction: ltr;
+    text-align: start;
+  }
+
+  .lp__cta {
+    justify-items: start;
+    margin-block: clamp(1rem, 0.5rem + 2vw, 2rem) clamp(2rem, 1rem + 4vw, 4rem);
+    border-color: var(--green);
+  }
+
+  .lp__cta h2 {
+    margin: 0;
+  }
+
+  .lp__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding-block: 1.5rem;
+    border-block-start: 1px solid var(--edge);
+    color: var(--dim);
+    font-size: 0.875rem;
+  }
+
+  .lp__foot a {
+    color: var(--dim);
+  }
+
+  @media (min-width: 48rem) {
+    .lp__products {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .lp__tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .lp__steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .lp__tiles {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+</style>
