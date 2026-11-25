@@ -1,0 +1,85 @@
+---
+/**
+ * The guest's own page for one order: its number, what was ordered, and how
+ * far along it is. It reloads by itself while the order is being made.
+ * The address contains the order's random id, which keeps it private to the guest.
+ */
+import Icon from '../../../../../components/Icon.astro';
+import Base from '../../../../../layouts/Base.astro';
+import { getOrder, orderStatusLabels, type OrderStatus } from '../../../../../lib/orders';
+import { getRestaurantBySlug } from '../../../../../lib/restaurants';
+import { themeOf } from '../../../../../lib/theme';
+
+const restaurant = await getRestaurantBySlug(Astro.params.slug ?? '');
+const order = restaurant && (await getOrder(restaurant.id, Astro.params.id ?? ''));
+if (!restaurant || !order) return new Response(null, { status: 404 });
+
+const steps: OrderStatus[] = ['new', 'preparing', 'ready', 'done'];
+const reached = steps.indexOf(order.status);
+const isCancelled = order.status === 'cancelled';
+const isLive = order.status === 'new' || order.status === 'preparing' || order.status === 'ready';
+
+const headline: Record<OrderStatus, string> = {
+  new: 'طلبك وصل المطبخ',
+  preparing: 'طلبك بيتحضّر',
+  ready: order.type === 'dine_in' ? 'طلبك جاهز وجايلك' : 'طلبك جاهز للاستلام',
+  done: 'بالهنا والشفا',
+  cancelled: 'الطلب اتلغى',
+};
+const backToMenu = `/${restaurant.slug}${order.table_number ? `?t=${order.table_number}` : ''}`;
+---
+
+<Base title={`طلب رقم ${order.number} · ${restaurant.name}`} theme={themeOf(restaurant)} isPrivate>
+  {isLive && <meta slot="head" http-equiv="refresh" content="20" />}
+
+  <main class="shell">
+    <article class="ticket">
+      <header class="ticket__top" data-state={isCancelled ? 'cancelled' : 'active'}>
+        <span class="ticket__mark"><Icon name={isCancelled ? 'x' : order.status === 'new' ? 'clock' : 'check'} /></span>
+        <h1>{headline[order.status]}</h1>
+        <p class="ticket__when">طلب رقم {order.number}</p>
+        <p>{restaurant.name}{order.table_number && ` · ترابيزة ${order.table_number}`}</p>
+      </header>
+
+      <div class="ticket__body">
+        {
+          !isCancelled && (
+            <ol class="progress" aria-label="حالة الطلب">
+              {steps.map((step, index) => (
+                <li data-done={index <= reached ? '' : undefined} aria-current={index === reached ? 'step' : undefined}>{orderStatusLabels[step]}</li>
+              ))}
+            </ol>
+          )
+        }
+        {isLive && <p class="muted small">الصفحة بتتحدّث لوحدها. الطلب بياخد حوالي {restaurant.prep_minutes} دقيقة.</p>}
+        {isCancelled && <p class="muted">لو فيه مشكلة كلّم المطعم{restaurant.phone && <> على <a class="ltr" href={`tel:${restaurant.phone}`}>{restaurant.phone}</a></>}.</p>}
+
+        <ul class="queue">
+          {
+            order.lines.map((line) => (
+              <li>
+                <span class="queue__place">{line.quantity}</span>
+                <span class="grow">{line.name}</span>
+                <span>{line.price * line.quantity} ج</span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <dl class="facts">
+          <dt>الإجمالي</dt>
+          <dd>{order.total} ج · الدفع في المطعم</dd>
+          {order.note && (
+            <>
+              <dt>ملاحظتك</dt>
+              <dd>{order.note}</dd>
+            </>
+          )}
+        </dl>
+      </div>
+    </article>
+
+    <a class="btn btn--ghost" href={backToMenu}><Icon name="plus" />اطلب حاجة تانية</a>
+    <p class="foot">المنيو والطلبات من BuildTech</p>
+  </main>
+</Base>

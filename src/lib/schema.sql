@@ -220,3 +220,88 @@ create table if not exists patient_notes (
   note text not null default '',
   primary key (clinic_id, patient_phone)
 );
+
+-- ===========================================================================
+-- 3. Product: restaurant menu and orders
+--
+-- Guests open the menu from a QR code on their table, or from a link, and
+-- order from their phone. The kitchen sees orders arrive on its dashboard.
+-- ===========================================================================
+
+-- What makes an account a restaurant. Shares its id with the account.
+create table if not exists restaurants (
+  id text primary key references accounts (id) on delete cascade,
+  cuisine text not null default '',
+  address text not null default '',
+  phone text not null default '',
+  whatsapp text not null default '',
+  about text not null default '',
+  map_url text not null default '',
+  -- Opening hours as the restaurant writes them, e.g. "يومياً من 12 الضهر لـ 12 بالليل".
+  hours_note text not null default '',
+  -- Tables are numbered 1 to this. Each gets its own QR code.
+  tables_count integer not null default 10 check (tables_count between 0 and 200),
+  -- Off pauses ordering; the menu stays readable.
+  accepts_orders boolean not null default true,
+  -- Whether guests may order without a table, to collect.
+  allows_pickup boolean not null default true,
+  -- Shown to guests as roughly how long an order takes.
+  prep_minutes integer not null default 20 check (prep_minutes between 1 and 240)
+);
+
+create table if not exists menu_categories (
+  id text primary key,
+  restaurant_id text not null references restaurants (id) on delete cascade,
+  name text not null,
+  sort_order integer not null default 0,
+  is_active boolean not null default true
+);
+
+create table if not exists menu_items (
+  id text primary key,
+  restaurant_id text not null references restaurants (id) on delete cascade,
+  category_id text not null references menu_categories (id) on delete cascade,
+  name text not null,
+  description text not null default '',
+  -- Whole Egyptian pounds.
+  price integer not null default 0 check (price >= 0),
+  -- Off shows the item as sold out for now.
+  is_available boolean not null default true,
+  sort_order integer not null default 0
+);
+
+create index if not exists menu_items_by_category on menu_items (restaurant_id, category_id, sort_order);
+
+create table if not exists orders (
+  id text primary key,
+  restaurant_id text not null references restaurants (id) on delete cascade,
+  -- A short number that restarts every day; what staff and guests call the order.
+  number integer not null,
+  -- The calendar day in the restaurant's timezone, as 'YYYY-MM-DD'.
+  day text not null check (day ~ '^\d{4}-\d{2}-\d{2}$'),
+  type text not null check (type in ('dine_in', 'pickup')),
+  -- Set for dine-in orders.
+  table_number integer,
+  customer_name text not null default '',
+  customer_phone text not null default '',
+  note text not null default '',
+  status text not null default 'new' check (status in ('new', 'preparing', 'ready', 'done', 'cancelled')),
+  -- Sum of the lines below, fixed when the order was placed.
+  total integer not null default 0 check (total >= 0),
+  created_at timestamptz not null default now(),
+  unique (restaurant_id, day, number)
+);
+
+create index if not exists orders_by_day on orders (restaurant_id, day, created_at);
+
+create table if not exists order_items (
+  id text primary key,
+  order_id text not null references orders (id) on delete cascade,
+  item_id text references menu_items (id) on delete set null,
+  -- Copied when the order was placed, so later menu edits do not rewrite it.
+  name text not null,
+  price integer not null,
+  quantity integer not null check (quantity between 1 and 50)
+);
+
+create index if not exists order_items_by_order on order_items (order_id);

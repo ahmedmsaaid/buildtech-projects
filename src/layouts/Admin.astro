@@ -1,106 +1,22 @@
 ---
-/**
- * Staff dashboard shell. On a computer the navigation is a sidebar; on a
- * phone it becomes a tab bar at the bottom, the way an app works.
- */
-import Icon from '../components/Icon.astro';
-import { daysBetween, formatDay, nowIn } from '../lib/time';
-import Base from './Base.astro';
-import { themeOf } from '../lib/theme';
+/** The clinic dashboard: the shared shell with the clinic's own sections. */
+import Dashboard, { type DashboardLink } from './Dashboard.astro';
 
 interface Props {
   title: string;
-  /** One line under the title. */
   subtitle?: string;
 }
 
-const { title, subtitle } = Astro.props;
-const { clinic, user } = Astro.locals;
-
-const links = [
+const links: DashboardLink[] = [
   { href: '/admin', label: 'المواعيد', icon: 'calendar' },
   { href: '/admin/patients', label: 'المرضى', icon: 'users' },
   { href: '/admin/reports', label: 'التقارير', icon: 'chart' },
   { href: '/admin/appearance', label: 'المظهر', icon: 'palette' },
   { href: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
-] as const;
-
-// A week before the subscription ends, every page says so.
-const daysLeft = clinic.paid_until ? daysBetween(nowIn(clinic.timezone).day, clinic.paid_until) : null;
-const renewalDue = daysLeft !== null && daysLeft <= 7;
-
-const path = Astro.url.pathname.replace(/\/$/, '') || '/admin';
-/** A section stays highlighted on its inner pages, e.g. a patient's profile. */
-const isCurrent = (href: string) => (href === '/admin' ? path === href : path.startsWith(href));
+];
 ---
 
-<Base title={`${title} · ${clinic.name}`} theme={themeOf(clinic)} isPrivate>
-  <div class="app">
-    <aside class="side">
-      <div class="side__brand">
-        <span class="avatar avatar--sm"><Icon name="pulse" /></span>
-        <span>
-          {clinic.name}
-          <small>{user.name || user.email}</small>
-        </span>
-      </div>
-
-      <nav class="side__nav" aria-label="أقسام اللوحة">
-        {
-          links.map((link) => (
-            <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
-              <Icon name={link.icon} />
-              {link.label}
-            </a>
-          ))
-        }
-      </nav>
-
-      <div class="side__foot">
-        <a class="btn btn--soft btn--sm" href={`/${clinic.slug}`} target="_blank" rel="noopener">
-          <Icon name="external" />
-          <span>صفحة الحجز</span>
-        </a>
-        <form method="post" action="/logout">
-          <button class="btn btn--ghost btn--sm btn--block" type="submit">
-            <Icon name="logout" />
-            <span>خروج</span>
-          </button>
-        </form>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="pagehead">
-        <div>
-          <h1>{title}</h1>
-          {subtitle && <p>{subtitle}</p>}
-        </div>
-        <div class="row no-print">
-          <slot name="actions" />
-        </div>
-      </header>
-      {
-        renewalDue && clinic.paid_until && (
-          <p class="notice notice--error no-print" role="status">
-            <Icon name="wallet" />
-            {daysLeft !== null && daysLeft < 0 ? `اشتراكك انتهى يوم ${formatDay(clinic.paid_until)}.` : `اشتراكك بينتهي يوم ${formatDay(clinic.paid_until)}.`}
-            {' '}كلّم BuildTech للتجديد عشان الخدمة ما تتوقفش.
-          </p>
-        )
-      }
-      <slot />
-    </main>
-
-    <nav class="tabbar" aria-label="أقسام اللوحة">
-      {
-        links.map((link) => (
-          <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
-            <Icon name={link.icon} />
-            {link.label}
-          </a>
-        ))
-      }
-    </nav>
-  </div>
-</Base>
+<Dashboard {...Astro.props} links={links}>
+  <slot name="actions" slot="actions" />
+  <slot />
+</Dashboard>

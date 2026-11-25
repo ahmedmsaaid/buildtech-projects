@@ -1,0 +1,107 @@
+---
+/** How the restaurant is doing over a period: orders, sales, best sellers, and tables against collection. */
+import Icon from '../../components/Icon.astro';
+import Restaurant from '../../layouts/Restaurant.astro';
+import { getOrderReport } from '../../lib/orders';
+import { addDays, formatDay, formatShortDay, nowIn } from '../../lib/time';
+
+const { restaurant } = Astro.locals;
+const today = nowIn(restaurant.timezone).day;
+
+const ranges = [7, 30, 90];
+const requested = Number(Astro.url.searchParams.get('days'));
+const span = ranges.includes(requested) ? requested : 30;
+const fromDay = addDays(today, -(span - 1));
+
+const report = await getOrderReport(restaurant.id, fromDay, today);
+const { totals } = report;
+
+const share = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));
+const average = totals.orders === 0 ? 0 : Math.round(totals.revenue / totals.orders);
+
+// The chart always shows the last 14 days, including days with no orders.
+const chartDays = Array.from({ length: 14 }, (_, offset) => addDays(today, offset - 13)).map((day) => ({
+  day,
+  orders: report.perDay.find((entry) => entry.day === day)?.orders ?? 0,
+}));
+const tallest = Math.max(1, ...chartDays.map((entry) => entry.orders));
+const bestSeller = Math.max(1, ...report.topItems.map((item) => item.quantity));
+---
+
+<Restaurant title="التقارير" subtitle={`من ${formatDay(fromDay)} لحد النهارده`}>
+  <Fragment slot="actions">
+    {
+      ranges.map((days) => (
+        <a class:list={['btn', 'btn--sm', { 'btn--primary': days === span }]} href={`/restaurant/reports?days=${days}`}>
+          آخر {days} يوم
+        </a>
+      ))
+    }
+  </Fragment>
+
+  <div class="stats">
+    <p class="stat"><span class="stat__icon"><Icon name="note" /></span><span><strong>{totals.orders}</strong><span>طلب</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{totals.revenue}</strong><span>المبيعات (ج)</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="chart" /></span><span><strong>{average}</strong><span>متوسط الطلب (ج)</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{totals.cancelled}</strong><span>طلب ملغي</span></span></p>
+  </div>
+
+  <section class="card" aria-labelledby="chart-title">
+    <h2 id="chart-title" class="card__title"><Icon name="chart" />الطلبات في آخر 14 يوم</h2>
+    <div class="bars" role="img" aria-label={`الطلبات اليومية في آخر 14 يوم، أعلى يوم فيه ${tallest} طلب`}>
+      {
+        chartDays.map((entry) => (
+          <div class="bars__col">
+            <span class="bars__value">{entry.orders || ''}</span>
+            <span class="bars__bar" data-empty={entry.orders === 0 ? '' : undefined} style={`height: ${(entry.orders / tallest) * 100}%`} />
+            <span class="bars__label">{formatShortDay(entry.day).split(' ')[0]}</span>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card" aria-labelledby="top-title">
+      <h2 id="top-title" class="card__title"><Icon name="note" />الأكتر مبيعاً</h2>
+      {
+        report.topItems.length === 0 ? (
+          <p class="muted">مفيش طلبات في الفترة دي.</p>
+        ) : (
+          <ul class="split">
+            {report.topItems.map((item) => (
+              <li class="stack stack--tight">
+                <div class="row row--spread">
+                  <strong>{item.name}</strong>
+                  <span class="muted small">{item.quantity} مرة · {item.revenue} ج</span>
+                </div>
+                <div class="meter"><span style={`width: ${(item.quantity / bestSeller) * 100}%`} /></div>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+
+    <section class="card" aria-labelledby="type-title">
+      <h2 id="type-title" class="card__title"><Icon name="building" />الطلبات جاية منين</h2>
+      <ul class="split">
+        <li class="stack stack--tight">
+          <div class="row row--spread">
+            <strong>من الترابيزات</strong>
+            <span class="muted small">{totals.dine_in} · {share(totals.dine_in, totals.orders)}%</span>
+          </div>
+          <div class="meter"><span style={`width: ${share(totals.dine_in, totals.orders)}%`} /></div>
+        </li>
+        <li class="stack stack--tight">
+          <div class="row row--spread">
+            <strong>للاستلام</strong>
+            <span class="muted small">{totals.orders - totals.dine_in} · {share(totals.orders - totals.dine_in, totals.orders)}%</span>
+          </div>
+          <div class="meter"><span style={`width: ${share(totals.orders - totals.dine_in, totals.orders)}%`} /></div>
+        </li>
+      </ul>
+      <p class="hint">الطلبات الملغية مش محسوبة في المبيعات.</p>
+    </section>
+  </div>
+</Restaurant>

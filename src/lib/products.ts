@@ -5,6 +5,7 @@
  * the dashboard.
  */
 import { getClinicById, getClinicUsage, setUpClinic } from './clinics';
+import { getRestaurantById, getRestaurantUsage, setUpRestaurant } from './restaurants';
 
 export interface Product {
   key: string;
@@ -46,6 +47,21 @@ export const products: Record<string, Product> = {
     setUp: (accountId, answers, contactPhone) =>
       setUpClinic(accountId, { doctorName: answers.doctor_name ?? '', specialty: answers.specialty ?? '', phone: contactPhone }),
     usage: getClinicUsage,
+  },
+  restaurant: {
+    key: 'restaurant',
+    customer: 'مطعم',
+    customers: 'المطاعم',
+    icon: 'building',
+    dashboardPath: '/restaurant',
+    publicPage: 'المنيو',
+    load: async (locals, accountId) => {
+      const restaurant = await getRestaurantById(accountId);
+      if (restaurant) locals.restaurant = restaurant;
+    },
+    setupFields: [{ name: 'cuisine', label: 'نوع الأكل' }],
+    setUp: (accountId, answers, contactPhone) => setUpRestaurant(accountId, { cuisine: answers.cuisine ?? '', phone: contactPhone }),
+    usage: getRestaurantUsage,
   },
 };
 

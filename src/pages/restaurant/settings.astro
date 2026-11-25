@@ -1,0 +1,139 @@
+---
+/** Restaurant settings: what guests see about the place, and how ordering works. */
+import Icon from '../../components/Icon.astro';
+import Restaurant from '../../layouts/Restaurant.astro';
+import { getRestaurantById, updateRestaurantDetails } from '../../lib/restaurants';
+import { text, wholeNumber } from '../../lib/validate';
+
+let { restaurant } = Astro.locals;
+const problems: string[] = [];
+let saved = Astro.url.searchParams.has('saved');
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const name = text(form, 'name', 80);
+  const tablesCount = wholeNumber(form, 'tables_count', 0, 200);
+  const prepMinutes = wholeNumber(form, 'prep_minutes', 1, 240);
+  const mapUrl = text(form, 'map_url', 300);
+
+  if (!name) problems.push('اسم المطعم مطلوب.');
+  if (tablesCount === null) problems.push('عدد الترابيزات لازم يكون من 0 لـ 200.');
+  if (prepMinutes === null) problems.push('وقت التحضير لازم يكون من 1 لـ 240 دقيقة.');
+  if (mapUrl && !/^https:\/\//.test(mapUrl)) problems.push('رابط الخريطة لازم يبدأ بـ https://');
+
+  if (problems.length === 0 && tablesCount !== null && prepMinutes !== null) {
+    await updateRestaurantDetails(restaurant.id, {
+      name,
+      cuisine: text(form, 'cuisine', 80),
+      address: text(form, 'address', 200),
+      phone: text(form, 'phone', 20),
+      whatsapp: text(form, 'whatsapp', 20),
+      about: text(form, 'about', 500),
+      map_url: mapUrl,
+      hours_note: text(form, 'hours_note', 80),
+      tables_count: tablesCount,
+      accepts_orders: form.has('accepts_orders'),
+      allows_pickup: form.has('allows_pickup'),
+      prep_minutes: prepMinutes,
+    });
+    return Astro.redirect('/restaurant/settings?saved');
+  }
+  saved = false;
+  restaurant = (await getRestaurantById(restaurant.id)) ?? restaurant;
+}
+---
+
+<Restaurant title="الإعدادات" subtitle="بيانات المطعم وطريقة الطلب">
+  <Fragment slot="actions">
+    <a class="btn btn--sm btn--soft" href={`/${restaurant.slug}`} target="_blank" rel="noopener"><Icon name="external" />المنيو</a>
+    <form method="post" action="/logout">
+      <button class="btn btn--sm" type="submit"><Icon name="logout" />خروج</button>
+    </form>
+  </Fragment>
+
+  {saved && <p class="notice" role="status"><Icon name="check" />اتحفظ.</p>}
+  {
+    problems.length > 0 && (
+      <div class="notice notice--error" role="alert">
+        <Icon name="ban" />
+        <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
+      </div>
+    )
+  }
+
+  <form class="stack" method="post">
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title"><Icon name="building" />بيانات المطعم</h2>
+        <span class="muted small">لينك المنيو: <span class="ltr">/{restaurant.slug}</span></span>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="name">اسم المطعم</label>
+          <input id="name" name="name" type="text" value={restaurant.name} required maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="cuisine">نوع الأكل</label>
+          <input id="cuisine" name="cuisine" type="text" value={restaurant.cuisine} maxlength="80" placeholder="مشويات، كشري، بيتزا..." />
+        </div>
+        <div class="field">
+          <label for="address">العنوان</label>
+          <input id="address" name="address" type="text" value={restaurant.address} maxlength="200" />
+        </div>
+        <div class="field">
+          <label for="hours_note">مواعيد العمل</label>
+          <input id="hours_note" name="hours_note" type="text" value={restaurant.hours_note} maxlength="80" placeholder="يومياً من 12 الضهر لـ 12 بالليل" />
+        </div>
+        <div class="field">
+          <label for="phone">تليفون المطعم</label>
+          <input id="phone" class="ltr" name="phone" type="tel" value={restaurant.phone} maxlength="20" />
+        </div>
+        <div class="field">
+          <label for="whatsapp">واتساب المطعم</label>
+          <input id="whatsapp" class="ltr" name="whatsapp" type="tel" value={restaurant.whatsapp} maxlength="20" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="about">نبذة عن المطعم</label>
+        <textarea id="about" name="about" rows="3" maxlength="500">{restaurant.about}</textarea>
+        <p class="hint">سطرين بيظهروا للزبون فوق المنيو. سيبها فاضية لو مش عايز.</p>
+      </div>
+      <div class="field">
+        <label for="map_url">رابط الموقع على خرائط جوجل</label>
+        <input id="map_url" class="ltr" name="map_url" type="url" value={restaurant.map_url} maxlength="300" placeholder="https://maps.app.goo.gl/..." />
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card__title"><Icon name="clock" />الطلب</h2>
+      <label class="row">
+        <input type="checkbox" name="accepts_orders" checked={restaurant.accepts_orders} />
+        <span>
+          <strong>بنستقبل طلبات أونلاين</strong>
+          <span class="block hint">شيل العلامة لو المطبخ مضغوط أو قافل. المنيو بيفضل ظاهر من غير طلب.</span>
+        </span>
+      </label>
+      <label class="row">
+        <input type="checkbox" name="allows_pickup" checked={restaurant.allows_pickup} />
+        <span>
+          <strong>الطلب للاستلام متاح</strong>
+          <span class="block hint">يقدر يطلب من غير ترابيزة وييجي ياخد طلبه. من غيرها الطلب بيبقى من كود الترابيزة بس.</span>
+        </span>
+      </label>
+      <div class="grid-2">
+        <div class="field">
+          <label for="tables_count">عدد الترابيزات</label>
+          <input id="tables_count" name="tables_count" type="number" value={restaurant.tables_count} min="0" max="200" required />
+          <p class="hint">كل ترابيزة بيتعملها كود في صفحة الترابيزات.</p>
+        </div>
+        <div class="field">
+          <label for="prep_minutes">وقت التحضير بالدقايق</label>
+          <input id="prep_minutes" name="prep_minutes" type="number" value={restaurant.prep_minutes} min="1" max="240" required />
+          <p class="hint">بيتقال للزبون بعد ما يطلب.</p>
+        </div>
+      </div>
+    </section>
+
+    <div><button class="btn btn--primary" type="submit">حفظ الإعدادات</button></div>
+  </form>
+</Restaurant>

@@ -1,0 +1,24 @@
+---
+/** Appearance of the restaurant's menu, the guest's order page and this dashboard. */
+import AppearanceEditor from '../../components/AppearanceEditor.astro';
+import Icon from '../../components/Icon.astro';
+import Restaurant from '../../layouts/Restaurant.astro';
+import { saveAppearance } from '../../lib/theme';
+
+const { restaurant } = Astro.locals;
+let problem: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  problem = await saveAppearance(restaurant.id, await Astro.request.formData());
+  if (!problem) return Astro.redirect('/restaurant/appearance?saved');
+}
+---
+
+<Restaurant title="المظهر" subtitle="شكل المنيو واللوحة: الألوان والخط والأشكال">
+  <a slot="actions" class="btn btn--sm btn--soft" href={`/${restaurant.slug}`} target="_blank" rel="noopener"><Icon name="external" />افتح المنيو</a>
+
+  {Astro.url.searchParams.has('saved') && <p class="notice" role="status"><Icon name="check" />الشكل اتحفظ واتطبّق على المنيو واللوحة.</p>}
+  {problem && <p class="notice notice--error" role="alert"><Icon name="ban" />{problem}</p>}
+
+  <AppearanceEditor account={restaurant} publicPage="المنيو" />
+</Restaurant>

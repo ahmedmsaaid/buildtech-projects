@@ -1,0 +1,59 @@
+---
+/**
+ * One QR code per table, ready to print. Scanning a code opens the menu
+ * with that table already chosen, so the order arrives with its table number.
+ */
+import QRCode from 'qrcode';
+import Icon from '../../components/Icon.astro';
+import Restaurant from '../../layouts/Restaurant.astro';
+
+const { restaurant } = Astro.locals;
+const menuUrl = new URL(`/${restaurant.slug}`, Astro.url).href;
+
+const tables = await Promise.all(
+  Array.from({ length: restaurant.tables_count }, async (_, index) => {
+    const number = index + 1;
+    const url = `${menuUrl}?t=${number}`;
+    return { number, url, svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
+  }),
+);
+const pickup = await QRCode.toString(menuUrl, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+---
+
+<Restaurant title="الترابيزات" subtitle={`${restaurant.tables_count} ترابيزة، كل واحدة بكود`}>
+  <Fragment slot="actions">
+    <a class="btn btn--sm" href="/restaurant/settings">غيّر عدد الترابيزات</a>
+    <button class="btn btn--sm btn--primary" type="button" data-print><Icon name="printer" />اطبع الأكواد</button>
+  </Fragment>
+
+  <p class="card no-print">
+    اطبع الصفحة وقصّ كل كود وحطه على ترابيزته. الزبون يمسح الكود بكاميرا موبايله، يطلب، والطلب يوصلك برقم الترابيزة.
+  </p>
+
+  {
+    tables.length === 0 ? (
+      <p class="card muted">مفيش ترابيزات. حدّد عددها من الإعدادات.</p>
+    ) : (
+      <div class="qr-grid">
+        {tables.map((table) => (
+          <div class="qr">
+            <strong>ترابيزة {table.number}</strong>
+            <Fragment set:html={table.svg} />
+            <span class="small">امسح واطلب · {restaurant.name}</span>
+          </div>
+        ))}
+        {restaurant.allows_pickup && (
+          <div class="qr">
+            <strong>طلب للاستلام</strong>
+            <Fragment set:html={pickup} />
+            <span class="small">للبوستر أو الواجهة · {restaurant.name}</span>
+          </div>
+        )}
+      </div>
+    )
+  }
+</Restaurant>
+
+<script>
+  document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+</script>

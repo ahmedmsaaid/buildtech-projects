@@ -1,0 +1,114 @@
+---
+/**
+ * The shell of every product's dashboard. On a computer the navigation is a
+ * sidebar, on a tablet a rail of icons, and on a phone a tab bar at the
+ * bottom. Each product wraps this with its own links (see Admin.astro).
+ */
+import Icon from '../components/Icon.astro';
+import { productOf } from '../lib/products';
+import { themeOf } from '../lib/theme';
+import { daysBetween, formatDay, nowIn } from '../lib/time';
+import Base from './Base.astro';
+
+export interface DashboardLink {
+  href: string;
+  label: string;
+  icon: 'calendar' | 'users' | 'chart' | 'palette' | 'settings' | 'note' | 'building' | 'clock' | 'wallet' | 'pulse';
+}
+
+interface Props {
+  title: string;
+  /** One line under the title. */
+  subtitle?: string;
+  /** The first link is the dashboard's home. */
+  links: DashboardLink[];
+  /** Seconds between automatic reloads, for pages that show live work. */
+  refreshEvery?: number;
+}
+
+const { title, subtitle, links, refreshEvery } = Astro.props;
+const { account, user } = Astro.locals;
+const product = productOf(account);
+
+// A week before the subscription ends, every page says so.
+const daysLeft = account.paid_until ? daysBetween(nowIn(account.timezone).day, account.paid_until) : null;
+const renewalDue = daysLeft !== null && daysLeft <= 7;
+
+const home = links[0].href;
+const path = Astro.url.pathname.replace(/\/$/, '') || home;
+/** A section stays highlighted on its inner pages, e.g. a patient's profile. */
+const isCurrent = (href: string) => (href === home ? path === href : path.startsWith(href));
+---
+
+<Base title={`${title} · ${account.name}`} theme={themeOf(account)} isPrivate>
+  {refreshEvery && <meta slot="head" http-equiv="refresh" content={String(refreshEvery)} />}
+
+  <div class="app">
+    <aside class="side">
+      <div class="side__brand">
+        <span class="avatar avatar--sm"><Icon name={product.icon} /></span>
+        <span>
+          {account.name}
+          <small>{user.name || user.email}</small>
+        </span>
+      </div>
+
+      <nav class="side__nav" aria-label="أقسام اللوحة">
+        {
+          links.map((link) => (
+            <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+              <Icon name={link.icon} />
+              {link.label}
+            </a>
+          ))
+        }
+      </nav>
+
+      <div class="side__foot">
+        <a class="btn btn--soft btn--sm" href={`/${account.slug}`} target="_blank" rel="noopener">
+          <Icon name="external" />
+          <span>{product.publicPage}</span>
+        </a>
+        <form method="post" action="/logout">
+          <button class="btn btn--ghost btn--sm btn--block" type="submit">
+            <Icon name="logout" />
+            <span>خروج</span>
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="pagehead">
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        <div class="row no-print">
+          <slot name="actions" />
+        </div>
+      </header>
+      {
+        renewalDue && account.paid_until && (
+          <p class="notice notice--error no-print" role="status">
+            <Icon name="wallet" />
+            {daysLeft !== null && daysLeft < 0 ? `اشتراكك انتهى يوم ${formatDay(account.paid_until)}.` : `اشتراكك بينتهي يوم ${formatDay(account.paid_until)}.`}
+            {' '}كلّم BuildTech للتجديد عشان الخدمة ما تتوقفش.
+          </p>
+        )
+      }
+      <slot />
+    </main>
+
+    <nav class="tabbar" aria-label="أقسام اللوحة">
+      {
+        links.map((link) => (
+          <a href={link.href} aria-current={isCurrent(link.href) ? 'page' : undefined}>
+            <Icon name={link.icon} />
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</Base>

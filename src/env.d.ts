@@ -12,6 +12,8 @@ declare namespace App {
     account: import('./lib/accounts').Account;
     /** On the clinic dashboard (/admin). */
     clinic: import('./lib/clinics').Clinic;
+    /** On the restaurant dashboard (/restaurant). */
+    restaurant: import('./lib/restaurants').Restaurant;
     /** Set by the middleware on every /owner page except the sign-in page. */
     owner: import('./lib/owner-auth').Owner;
   }

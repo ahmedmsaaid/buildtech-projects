@@ -33,12 +33,25 @@ The code has two layers, and so does the database (`src/lib/schema.sql`).
 - `src/lib/theme.ts` — a customer's look.
 - `src/pages/owner/` — the owner dashboard.
 
-**Products** — one so far, clinic booking:
+**Products** — two so far.
+
+Clinic booking:
 
 - `src/lib/clinics.ts` — a clinic's profile, hours and services.
 - `src/lib/appointments.ts` — booking rules: free slots, the queue, payments.
-- `src/pages/[clinic]/` — what patients see.
+- `src/pages/site/clinic/` — what patients see.
 - `src/pages/admin/` — the clinic's dashboard, guarded by `src/middleware.ts`.
+
+Restaurant menu and orders:
+
+- `src/lib/restaurants.ts` — a restaurant's profile and its menu.
+- `src/lib/orders.ts` — placing an order, the kitchen's day, reports.
+- `src/pages/site/restaurant/` — the menu guests order from.
+- `src/pages/restaurant/` — the restaurant's dashboard.
+
+Every customer's public address is `/<slug>`; `src/pages/[slug]/[...path].ts`
+hands the request to the right product's pages under `src/pages/site/`.
+Staff of every product sign in at `/login`.
 
 `src/lib/db.ts` is the only code that talks to the database.
 

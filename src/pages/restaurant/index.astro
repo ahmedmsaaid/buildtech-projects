@@ -1,0 +1,142 @@
+---
+/**
+ * The kitchen's live board: today's orders in three columns, each moved to
+ * the next stage with one press. The page reloads by itself so new orders appear.
+ */
+import Icon from '../../components/Icon.astro';
+import Restaurant from '../../layouts/Restaurant.astro';
+import { getOrdersOn, nextStatus, orderStatuses, orderStatusLabels, setOrderStatus, type Order, type OrderStatus } from '../../lib/orders';
+import { formatDay, formatMoment, nowIn } from '../../lib/time';
+import { text } from '../../lib/validate';
+
+const { restaurant } = Astro.locals;
+const today = nowIn(restaurant.timezone).day;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const status = text(form, 'status', 20) as OrderStatus;
+  if (orderStatuses.includes(status)) await setOrderStatus(restaurant.id, text(form, 'id', 40), status);
+  return Astro.redirect('/restaurant');
+}
+
+const orders = await getOrdersOn(restaurant.id, today);
+const inStage = (status: OrderStatus) => orders.filter((order) => order.status === status);
+const finished = orders.filter((order) => order.status === 'done' || order.status === 'cancelled').reverse();
+const revenue = orders.filter((order) => order.status !== 'cancelled').reduce((sum, order) => sum + order.total, 0);
+
+const columns: { status: OrderStatus; title: string; action: string }[] = [
+  { status: 'new', title: 'جديد', action: 'ابدأ التحضير' },
+  { status: 'preparing', title: 'بيتحضّر', action: 'جاهز' },
+  { status: 'ready', title: 'جاهز', action: 'اتسلّم' },
+];
+
+const where = (order: Order) => (order.type === 'dine_in' ? `ترابيزة ${order.table_number}` : `استلام · ${order.customer_name}`);
+/** Only the time of day: every order on this board is from today. */
+const timeOf = (order: Order) => formatMoment(order.created_at, restaurant.timezone).split(' · ')[1];
+---
+
+<Restaurant title="طلبات النهارده" subtitle={formatDay(today)} refreshEvery={20}>
+  <Fragment slot="actions">
+    <span class="badge" data-status={restaurant.accepts_orders ? 'done' : 'cancelled'}>
+      {restaurant.accepts_orders ? 'بنستقبل طلبات' : 'الطلبات متوقفة'}
+    </span>
+    <a class="btn btn--sm" href="/restaurant/settings">غيّر</a>
+  </Fragment>
+
+  <div class="stats">
+    <p class="stat"><span class="stat__icon"><Icon name="note" /></span><span><strong>{orders.length - inStage('cancelled').length}</strong><span>طلب</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{inStage('new').length + inStage('preparing').length}</strong><span>في المطبخ</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{inStage('done').length}</strong><span>اتسلّم</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{revenue}</strong><span>مبيعات اليوم (ج)</span></span></p>
+  </div>
+
+  <div class="kitchen">
+    {
+      columns.map((column) => (
+        <section class="card" aria-labelledby={`col-${column.status}`}>
+          <div class="card__head">
+            <h2 id={`col-${column.status}`} class="card__title">{column.title}</h2>
+            <span class="badge" data-status={column.status}>{inStage(column.status).length}</span>
+          </div>
+
+          {inStage(column.status).length === 0 ? (
+            <p class="muted small">مفيش طلبات هنا.</p>
+          ) : (
+            <div class="kitchen__col">
+              {inStage(column.status).map((order) => (
+                <article class="ticket-card" data-status={order.status}>
+                  <div class="row row--spread">
+                    <span class="ticket-card__number">#{order.number}</span>
+                    <span class="muted small">{timeOf(order)}</span>
+                  </div>
+                  <strong>{where(order)}</strong>
+
+                  <ul class="queue">
+                    {order.lines.map((line) => (
+                      <li>
+                        <span class="queue__place">{line.quantity}</span>
+                        <span class="grow">{line.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {order.note && <p class="small"><Icon name="note" /> {order.note}</p>}
+
+                  <div class="row row--spread">
+                    <strong>{order.total} ج</strong>
+                    {order.customer_phone && <a class="small ltr" href={`tel:${order.customer_phone}`}>{order.customer_phone}</a>}
+                  </div>
+
+                  <div class="row">
+                    <form class="grow" method="post">
+                      <input type="hidden" name="id" value={order.id} />
+                      <input type="hidden" name="status" value={nextStatus[order.status]} />
+                      <button class="btn btn--primary btn--block" type="submit">{column.action}</button>
+                    </form>
+                    <form method="post">
+                      <input type="hidden" name="id" value={order.id} />
+                      <input type="hidden" name="status" value="cancelled" />
+                      <button class="btn btn--danger" type="submit" aria-label={`إلغاء طلب ${order.number}`}><Icon name="x" /></button>
+                    </form>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ))
+    }
+  </div>
+
+  {
+    finished.length > 0 && (
+      <details class="card">
+        <summary>الطلبات المنتهية ({finished.length})</summary>
+        <div class="table-wrap">
+          <table class="cards-on-phone">
+            <thead>
+              <tr>
+                <th>الطلب</th>
+                <th>الوقت</th>
+                <th>لمين</th>
+                <th>الإجمالي</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {finished.map((order) => (
+                <tr>
+                  <td><strong>#{order.number}</strong></td>
+                  <td data-label="الوقت">{timeOf(order)}</td>
+                  <td data-label="لمين">{where(order)}</td>
+                  <td data-label="الإجمالي">{order.total} ج</td>
+                  <td data-label="الحالة"><span class="badge" data-status={order.status}>{orderStatusLabels[order.status]}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    )
+  }
+</Restaurant>

@@ -1,0 +1,116 @@
+---
+/** The menu: sections and their dishes, with prices and what is sold out right now. */
+import Icon from '../../components/Icon.astro';
+import Restaurant from '../../layouts/Restaurant.astro';
+import { addCategory, addItem, deleteItem, getMenu, updateCategory, updateItem } from '../../lib/restaurants';
+import { text, wholeNumber } from '../../lib/validate';
+
+const { restaurant } = Astro.locals;
+const problems: string[] = [];
+let saved = Astro.url.searchParams.has('saved');
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = text(form, '_action', 20);
+  const name = text(form, 'name', 80);
+  const id = text(form, 'id', 40);
+
+  if (action === 'category-add' || action === 'category-update') {
+    if (!name) problems.push('اسم القسم مطلوب.');
+    else if (action === 'category-add') await addCategory(restaurant.id, name);
+    else await updateCategory(restaurant.id, id, { name, is_active: form.has('is_active') });
+  }
+
+  if (action === 'item-add' || action === 'item-update') {
+    const price = wholeNumber(form, 'price', 0, 1_000_000);
+    const description = text(form, 'description', 200);
+    if (!name) problems.push('اسم الصنف مطلوب.');
+    if (price === null) problems.push('السعر لازم يكون رقم.');
+
+    if (problems.length === 0 && price !== null) {
+      if (action === 'item-update') await updateItem(restaurant.id, id, { name, description, price, is_available: form.has('is_available') });
+      else if (!(await addItem(restaurant.id, text(form, 'category_id', 40), { name, description, price }))) problems.push('القسم ده مش موجود.');
+    }
+  }
+
+  if (action === 'item-delete') await deleteItem(restaurant.id, id);
+
+  if (problems.length === 0) return Astro.redirect('/restaurant/menu?saved');
+  saved = false;
+}
+
+const menu = await getMenu(restaurant.id, { forStaff: true });
+const itemCount = menu.reduce((sum, category) => sum + category.items.length, 0);
+---
+
+<Restaurant title="المنيو" subtitle={`${menu.length} قسم · ${itemCount} صنف`}>
+  <a slot="actions" class="btn btn--sm btn--soft" href={`/${restaurant.slug}`} target="_blank" rel="noopener"><Icon name="external" />شوف المنيو</a>
+
+  {saved && <p class="notice" role="status"><Icon name="check" />اتحفظ.</p>}
+  {
+    problems.length > 0 && (
+      <div class="notice notice--error" role="alert">
+        <Icon name="ban" />
+        <ul>{problems.map((problem) => <li>{problem}</li>)}</ul>
+      </div>
+    )
+  }
+
+  {
+    menu.map((category) => (
+      <section class="card" aria-label={category.name}>
+        <form class="row" method="post">
+          <input type="hidden" name="_action" value="category-update" />
+          <input type="hidden" name="id" value={category.id} />
+          <input class="grow" name="name" type="text" value={category.name} aria-label="اسم القسم" required maxlength="80" />
+          <label class="small">
+            <input type="checkbox" name="is_active" checked={category.is_active} />
+            ظاهر للزبون
+          </label>
+          <button class="btn btn--sm" type="submit">حفظ القسم</button>
+        </form>
+
+        {category.items.map((item) => (
+          <div class="row">
+            <form class="row grow" method="post">
+              <input type="hidden" name="_action" value="item-update" />
+              <input type="hidden" name="id" value={item.id} />
+              <input class="grow" name="name" type="text" value={item.name} aria-label="اسم الصنف" required maxlength="80" />
+              <input class="grow" name="description" type="text" value={item.description} aria-label={`وصف ${item.name}`} placeholder="وصف قصير" maxlength="200" />
+              <input class="auto" name="price" type="number" value={item.price} min="0" aria-label={`سعر ${item.name}`} required />
+              <label class="small">
+                <input type="checkbox" name="is_available" checked={item.is_available} />
+                متاح
+              </label>
+              <button class="btn btn--sm" type="submit">حفظ</button>
+            </form>
+            <form method="post">
+              <input type="hidden" name="_action" value="item-delete" />
+              <input type="hidden" name="id" value={item.id} />
+              <button class="btn btn--sm btn--danger" type="submit" aria-label={`احذف ${item.name}`}><Icon name="x" /></button>
+            </form>
+          </div>
+        ))}
+
+        <form class="row" method="post">
+          <input type="hidden" name="_action" value="item-add" />
+          <input type="hidden" name="category_id" value={category.id} />
+          <input class="grow" name="name" type="text" placeholder="صنف جديد" aria-label={`صنف جديد في ${category.name}`} required maxlength="80" />
+          <input class="grow" name="description" type="text" placeholder="وصف قصير (اختياري)" aria-label="وصف الصنف الجديد" maxlength="200" />
+          <input class="auto" name="price" type="number" placeholder="السعر" min="0" aria-label="سعر الصنف الجديد" required />
+          <button class="btn btn--sm btn--primary" type="submit">إضافة</button>
+        </form>
+      </section>
+    ))
+  }
+
+  <form class="card" method="post">
+    <input type="hidden" name="_action" value="category-add" />
+    <h2 class="card__title"><Icon name="plus" />قسم جديد</h2>
+    <div class="row">
+      <input class="grow" name="name" type="text" placeholder="مثال: مشروبات" aria-label="اسم القسم الجديد" required maxlength="80" />
+      <button class="btn btn--primary" type="submit">إضافة القسم</button>
+    </div>
+    <p class="hint">شيل علامة "متاح" من صنف خلص، وهيظهر للزبون "خلص" من غير ما يتمسح من المنيو. الأسعار بالجنيه.</p>
+  </form>
+</Restaurant>

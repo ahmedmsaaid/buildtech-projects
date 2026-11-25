@@ -1,0 +1,25 @@
+---
+/** The restaurant dashboard: the shared shell with the restaurant's own sections. */
+import Dashboard, { type DashboardLink } from './Dashboard.astro';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  /** Seconds between automatic reloads, for the live orders board. */
+  refreshEvery?: number;
+}
+
+const links: DashboardLink[] = [
+  { href: '/restaurant', label: 'الطلبات', icon: 'clock' },
+  { href: '/restaurant/menu', label: 'المنيو', icon: 'note' },
+  { href: '/restaurant/tables', label: 'الترابيزات', icon: 'building' },
+  { href: '/restaurant/reports', label: 'التقارير', icon: 'chart' },
+  { href: '/restaurant/appearance', label: 'المظهر', icon: 'palette' },
+  { href: '/restaurant/settings', label: 'الإعدادات', icon: 'settings' },
+];
+---
+
+<Dashboard {...Astro.props} links={links}>
+  <slot name="actions" slot="actions" />
+  <slot />
+</Dashboard>

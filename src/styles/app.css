@@ -1804,3 +1804,238 @@ body[data-density='compact'] {
   height: 34rem;
   border: 0;
 }
+
+/* =====================================================================
+   Restaurant product
+   ===================================================================== */
+
+/* The cart bar is fixed at the bottom, so the page leaves room under its last card. */
+.shell--menu {
+  padding-block-end: 7rem;
+}
+
+/* Menu sections as chips that stay within reach while the guest scrolls. */
+.menu-nav {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  display: flex;
+  gap: var(--s2);
+  margin-inline: calc(-1 * var(--s2));
+  padding: var(--s2);
+  overflow-x: auto;
+  background: var(--bg);
+}
+
+.menu-nav .chip {
+  flex-shrink: 0;
+  padding: var(--s2) var(--s4);
+  border: 1px solid var(--accent-line);
+}
+
+/* Jumping to a section lands below the sticky chips, not under them. */
+.shell--menu section[id] {
+  scroll-margin-block-start: 4.5rem;
+}
+
+.dishes {
+  display: grid;
+}
+
+.dish {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding-block: var(--s3);
+}
+
+.dish + .dish {
+  border-block-start: 1px solid var(--line);
+}
+
+.dish__text {
+  min-width: 0;
+}
+
+.dish__price {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
+.dish[data-sold-out] .dish__text {
+  opacity: 0.55;
+}
+
+.stepper {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.stepper .btn {
+  width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  font-size: 1.25rem;
+}
+
+.stepper .btn[disabled] {
+  visibility: hidden;
+}
+
+.stepper input {
+  width: 3.25rem;
+  height: 2.5rem;
+  padding: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cartbar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 -6px 20px rgb(15 27 42 / 8%);
+}
+
+.cartbar__sum {
+  display: grid;
+  line-height: 1.3;
+}
+
+.cartbar__sum strong {
+  font-size: 1.35rem;
+}
+
+@media (min-width: 48rem) {
+  .cartbar {
+    inset-inline: auto;
+    inset-inline-start: 50%;
+    inset-block-end: var(--s4);
+    width: min(100% - 2rem, 42rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    translate: 50% 0;
+  }
+}
+
+/* How far along an order is: a row of steps, filled up to the current one. */
+.progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s1);
+}
+
+.progress li {
+  padding-block-start: var(--s2);
+  border-block-start: 4px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.progress li[data-done] {
+  border-block-start-color: var(--accent);
+  color: var(--ink);
+}
+
+.progress li[aria-current='step'] {
+  color: var(--accent-dark);
+}
+
+/* The kitchen board: one column per stage on wide screens, stacked on phones. */
+.kitchen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .kitchen {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.kitchen__col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+}
+
+.ticket-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--info);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.ticket-card[data-status='preparing'] {
+  border-inline-start-color: var(--warn);
+}
+
+.ticket-card[data-status='ready'] {
+  border-inline-start-color: var(--ok);
+}
+
+.ticket-card__number {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.badge[data-status='preparing'] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.badge[data-status='ready'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+/* One QR code per table, sized to cut out and stand on the table. */
+.qr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--s3);
+}
+
+.qr {
+  display: grid;
+  justify-items: center;
+  gap: var(--s2);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* Always white with dark squares: a QR code must stay readable in dark mode. */
+  background: #ffffff;
+  color: #0f1b2a;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.qr svg {
+  width: 100%;
+  max-width: 9rem;
+  height: auto;
+}
+
+.qr strong {
+  font-size: 1.1rem;
+}
