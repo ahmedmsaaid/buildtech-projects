@@ -26,6 +26,30 @@ const databaseUrl = (import.meta.env.DATABASE_URL ?? process.env.DATABASE_URL ??
 /** True when the local development database is in use. */
 export const usesLocalDatabase = databaseUrl === '';
 
+/**
+ * Puts a statement's values into its text, which is what lets many statements
+ * travel together (see runAll). Text values are quoted the way Postgres
+ * expects, with any quote inside doubled, so a value can never end its own
+ * quotes and be read as SQL. Even so, `queryAll` is meant for rows the server
+ * made up itself, like demo data; what people type goes through `query`.
+ */
+function withValuesWrittenIn({ sql, params }: Statement): string {
+  return sql.replace(/\$(\d+)/g, (_, position: string) => {
+    const value = params[Number(position) - 1];
+    if (value === undefined) throw new Error(`Statement has no value for $${position}`);
+    if (value === null) return 'null';
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw new Error('A number sent to the database must be finite');
+      return String(value);
+    }
+    // Postgres cannot store this character, and a backslash would only matter
+    // with a setting Postgres turned off by default years ago; refuse both.
+    if (value.includes('\0') || value.includes('\\')) throw new Error('This text cannot be written in a batch');
+    return `'${value.replaceAll("'", "''")}'`;
+  });
+}
+
 async function connect(): Promise<Database> {
   if (!usesLocalDatabase) {
     const { default: postgres } = await import('postgres');
@@ -33,10 +57,10 @@ async function connect(): Promise<Database> {
     const sql = postgres(databaseUrl, { prepare: false, max: 3 });
     return {
       run: async (text, params = []) => (await sql.unsafe(text, params)) as never,
-      // Returning the statements together sends them down one connection without
-      // waiting for each answer, so hundreds of rows cost about one trip to the server.
+      // Sent as one piece of text, so hundreds of rows cost one trip to the server
+      // instead of one each. Postgres runs such a text as a single transaction.
       runAll: async (statements) => {
-        await sql.begin((transaction) => statements.map((statement) => transaction.unsafe(statement.sql, statement.params)));
+        await sql.unsafe(statements.map(withValuesWrittenIn).join(';\n')).simple();
       },
     };
   }
