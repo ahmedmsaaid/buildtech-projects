@@ -11,18 +11,34 @@ import schema from './schema.sql?raw';
 
 type Params = (string | number | boolean | null)[];
 type Runner = <Row>(sql: string, params?: Params) => Promise<Row[]>;
+export interface Statement {
+  sql: string;
+  params: Params;
+}
+interface Database {
+  run: Runner;
+  /** Runs many statements in order as one transaction: all of them happen, or none. */
+  runAll: (statements: Statement[]) => Promise<void>;
+}
 
 const databaseUrl = (import.meta.env.DATABASE_URL ?? process.env.DATABASE_URL ?? '').trim();
 
 /** True when the local development database is in use. */
 export const usesLocalDatabase = databaseUrl === '';
 
-async function connect(): Promise<Runner> {
+async function connect(): Promise<Database> {
   if (!usesLocalDatabase) {
     const { default: postgres } = await import('postgres');
     // Supabase's pooler does not support prepared statements.
     const sql = postgres(databaseUrl, { prepare: false, max: 3 });
-    return async (text, params = []) => (await sql.unsafe(text, params)) as never;
+    return {
+      run: async (text, params = []) => (await sql.unsafe(text, params)) as never,
+      // Returning the statements together sends them down one connection without
+      // waiting for each answer, so hundreds of rows cost about one trip to the server.
+      runAll: async (statements) => {
+        await sql.begin((transaction) => statements.map((statement) => transaction.unsafe(statement.sql, statement.params)));
+      },
+    };
   }
 
   const { PGlite } = await import('@electric-sql/pglite');
@@ -35,7 +51,13 @@ async function connect(): Promise<Runner> {
   const { seedDemoData } = await import('./dev-seed');
   await seedDemoData(run);
   await shareLocalDatabase(local);
-  return run;
+  return {
+    run,
+    runAll: (statements) =>
+      local.transaction(async (transaction) => {
+        for (const statement of statements) await transaction.query(statement.sql, statement.params);
+      }),
+  };
 }
 
 /** Where the local database listens for the owner dashboard, in development only. */
@@ -57,16 +79,28 @@ async function shareLocalDatabase(local: import('@electric-sql/pglite').PGlite):
 }
 
 // Kept on globalThis so the dev server's reloads reuse one connection.
-const shared = globalThis as { __clinicDb?: Promise<Runner> };
+const shared = globalThis as { __clinicDb?: Promise<Database> };
 
-export async function query<Row = Record<string, unknown>>(sql: string, params: Params = []): Promise<Row[]> {
+function database(): Promise<Database> {
   // A failed connection is forgotten, so the next request tries again.
   shared.__clinicDb ??= connect().catch((error) => {
     shared.__clinicDb = undefined;
     throw error;
   });
-  const run = await shared.__clinicDb;
-  return run<Row>(sql, params);
+  return shared.__clinicDb;
+}
+
+export async function query<Row = Record<string, unknown>>(sql: string, params: Params = []): Promise<Row[]> {
+  return (await database()).run<Row>(sql, params);
+}
+
+/**
+ * Writes many rows at once, in order, as one transaction. Use it instead of a
+ * loop of `query` calls: the database is far from the server, and each
+ * separate call is a trip there and back.
+ */
+export async function queryAll(statements: Statement[]): Promise<void> {
+  if (statements.length > 0) await (await database()).runAll(statements);
 }
 
 /** True when a write failed because the row would duplicate a unique value. */

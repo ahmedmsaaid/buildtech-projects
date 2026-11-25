@@ -9,8 +9,8 @@
 import { randomBytes } from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { hashPassword, startSession } from './auth';
-import { newId, query } from './db';
-import { demoNames, fillClinic, fillRestaurant } from './demo-data';
+import { newId, query, queryAll, type Statement } from './db';
+import { demoNames, fillClinic, fillRestaurant, type Run } from './demo-data';
 import { products } from './products';
 import { addDays, nowIn } from './time';
 
@@ -50,30 +50,39 @@ export async function startDemo(product: DemoProduct, cookies: AstroCookies): Pr
   const tag = randomBytes(4).toString('hex');
   const { name, contact } = demoNames[product];
 
-  await query(
+  // A demo is a few hundred rows. They are collected here and written in one
+  // go at the end (see queryAll); one at a time took the visitor half a minute.
+  const statements: Statement[] = [];
+  const collect: Run = async (sql, params = []) => {
+    statements.push({ sql, params });
+    return [];
+  };
+
+  await collect(
     `insert into accounts (id, product, slug, name, paid_until, contact_name, accent, timezone, demo_expires_at)
      values ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(hours => $9))`,
     [accountId, product, `demo-${tag}`, name, addDays(today, 30), contact, product === 'restaurant' ? '#b45309' : '#0f766e', TIMEZONE, DEMO_HOURS],
   );
 
   if (product === 'clinic') {
-    await fillClinic(query, accountId, today, {
+    await fillClinic(collect, accountId, today, {
       doctor: contact,
       specialty: 'باطنة وجهاز هضمي',
       about: 'استشاري الباطنة والجهاز الهضمي والمناظير. خبرة أكتر من 15 سنة في تشخيص وعلاج أمراض المعدة والقولون والكبد.',
     });
   } else {
-    await fillRestaurant(query, accountId, today);
+    await fillRestaurant(collect, accountId, today);
   }
 
   const userId = newId();
-  await query('insert into users (id, account_id, email, password_hash, name) values ($1, $2, $3, $4, $5)', [
+  await collect('insert into users (id, account_id, email, password_hash, name) values ($1, $2, $3, $4, $5)', [
     userId,
     accountId,
     `demo-${tag}@demo.invalid`,
     hashPassword(randomBytes(24).toString('hex')),
     'زائر',
   ]);
+  await queryAll(statements);
 
   await startSession(cookies, userId);
   return products[product].dashboardPath;
