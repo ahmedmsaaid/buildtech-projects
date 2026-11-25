@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly DATABASE_URL?: string;
+  readonly INTERNAL_API_SECRET?: string;
 }
 
 declare namespace App {
@@ -14,7 +15,5 @@ declare namespace App {
     clinic: import('./lib/clinics').Clinic;
     /** On the restaurant dashboard (/restaurant). */
     restaurant: import('./lib/restaurants').Restaurant;
-    /** Set by the middleware on every /owner page except the sign-in page. */
-    owner: import('./lib/owner-auth').Owner;
   }
 }

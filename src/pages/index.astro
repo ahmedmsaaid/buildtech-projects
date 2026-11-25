@@ -1,44 +1,47 @@
 ---
-/** The product's front door. Each clinic lives at its own address: /<clinic>. */
+/**
+ * The platform's front door. Customers each have their own address
+ * (/<slug>) and sign in at /login; this page is for someone who arrives
+ * at the bare address.
+ */
 import Icon from '../components/Icon.astro';
 import Base from '../layouts/Base.astro';
 import { usesLocalDatabase } from '../lib/db';
 
-const features = [
-  { icon: 'calendar', title: 'حجز أونلاين', body: 'المريض يحجز من لينك باسم العيادة في أقل من دقيقة، من غير مكالمات.' },
-  { icon: 'hourglass', title: 'طابور انتظار حي', body: 'المريض يشوف قدامه كام واحد من موبايله، والاستقبال يرتّب الدخول.' },
-  { icon: 'chat', title: 'تذكير واتساب', body: 'رسالة تذكير جاهزة لكل مريض بضغطة، فالغياب يقل.' },
-  { icon: 'chart', title: 'تقارير وإيراد', body: 'عدد الحجوزات ونسبة الحضور وإيراد كل يوم قدامك.' },
+const offers = [
+  { icon: 'pulse', title: 'حجز العيادات', body: 'المريض يحجز من لينك باسم العيادة، ويتابع دوره من موبايله. الاستقبال يدير اليوم كله من لوحة واحدة.', demo: '/demo' },
+  { icon: 'building', title: 'منيو وطلبات المطاعم', body: 'الزبون يمسح كود الترابيزة ويطلب من موبايله، والطلب يوصل المطبخ على طول.', demo: '/resto' },
 ] as const;
 ---
 
-<Base title="حجز العيادات · BuildTech">
+<Base title="منتجات BuildTech">
   <main class="shell">
     <header class="hero">
       <div class="hero__id">
-        <span class="avatar"><Icon name="pulse" /></span>
+        <span class="avatar"><Icon name="building" /></span>
         <div>
-          <h1>حجز العيادات</h1>
-          <p>نظام مواعيد كامل لعيادتك، من الحجز لحد الكشف.</p>
+          <h1>منتجات BuildTech</h1>
+          <p>أنظمة جاهزة لشغلك، بتشتغل من المتصفح زي التطبيق.</p>
         </div>
       </div>
       <div class="row">
-        {usesLocalDatabase && <a class="btn" href="/demo">جرّب صفحة الحجز</a>}
-        <a class="btn btn--ghost chip" href="/login">دخول العملاء</a>
-        <a class="btn btn--ghost chip" href="/owner">لوحة المنصة</a>
+        <a class="btn" href="/login"><Icon name="key" />دخول العملاء</a>
       </div>
     </header>
 
     <div class="grid-2">
       {
-        features.map((feature) => (
+        offers.map((offer) => (
           <section class="card">
-            <h2 class="card__title"><Icon name={feature.icon} />{feature.title}</h2>
-            <p class="muted">{feature.body}</p>
+            <h2 class="card__title"><Icon name={offer.icon} />{offer.title}</h2>
+            <p class="muted">{offer.body}</p>
+            {/* The demo customers exist only in the local development database. */}
+            {usesLocalDatabase && <div><a class="btn btn--sm btn--soft" href={offer.demo}>شوف التجربة</a></div>}
           </section>
         ))
       }
     </div>
-    <p class="foot">من BuildTech</p>
+
+    <p class="foot">عايز نظام لنشاطك؟ كلّم BuildTech.</p>
   </main>
 </Base>

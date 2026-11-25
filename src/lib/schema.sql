@@ -107,6 +107,15 @@ create table if not exists subscription_payments (
 create index if not exists subscription_payments_by_account on subscription_payments (account_id, paid_on desc);
 create index if not exists subscription_payments_by_day on subscription_payments (paid_on);
 
+-- One-use passes that let the owner open a customer's dashboard from the
+-- owner dashboard, which lives on another address (see pages/enter.ts).
+-- A pass lasts a minute and is deleted when used.
+create table if not exists dashboard_passes (
+  token_hash text primary key,
+  user_id text not null references users (id) on delete cascade,
+  expires_at timestamptz not null
+);
+
 -- What happened on the platform and who did it: the owner's audit trail.
 -- Rows are only ever added.
 create table if not exists events (

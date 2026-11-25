@@ -34,7 +34,26 @@ async function connect(): Promise<Runner> {
 
   const { seedDemoData } = await import('./dev-seed');
   await seedDemoData(run);
+  await shareLocalDatabase(local);
   return run;
+}
+
+/** Where the local database listens for the owner dashboard, in development only. */
+export const LOCAL_DATABASE_PORT = 54330;
+
+/**
+ * The owner dashboard is a separate project, so in development it cannot
+ * open this database's files. This serves the same database over the network
+ * on this machine only, so both projects see the same demo data.
+ */
+async function shareLocalDatabase(local: import('@electric-sql/pglite').PGlite): Promise<void> {
+  try {
+    const { PGLiteSocketServer } = await import('@electric-sql/pglite-socket');
+    await new PGLiteSocketServer({ db: local, port: LOCAL_DATABASE_PORT, host: '127.0.0.1' }).start();
+  } catch (error) {
+    // The port being busy must not stop this project from running by itself.
+    console.warn('The local database is not shared with the dashboard:', error instanceof Error ? error.message : error);
+  }
 }
 
 // Kept on globalThis so the dev server's reloads reuse one connection.

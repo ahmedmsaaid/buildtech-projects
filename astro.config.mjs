@@ -8,5 +8,5 @@ export default defineConfig({
   output: 'server',
   adapter: vercel(),
   // The local database engine ships WebAssembly that must not be bundled.
-  vite: { ssr: { external: ['@electric-sql/pglite'] } },
+  vite: { ssr: { external: ['@electric-sql/pglite', '@electric-sql/pglite-socket'] } },
 });

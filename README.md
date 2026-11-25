@@ -15,9 +15,10 @@ Open http://localhost:4340. With no `DATABASE_URL`, the app keeps a local
 database in `.data/` and creates a demo clinic at `/demo`. The demo sign-in
 for `/admin` is in `src/lib/dev-seed.ts`. Delete `.data/` to start again.
 
-The platform owner's dashboard is at `/owner`: every clinic, its
-subscription and payments, suspending a clinic, and opening its dashboard.
-Its demo sign-in is in the same file.
+The platform owner's dashboard is a separate project,
+`buildtech-projects-dashboard`, which uses the same database. While this
+project runs locally it serves its demo database on port 54330, so the
+dashboard can be run beside it (see that project's README).
 
 ## How it is organised
 
@@ -26,12 +27,11 @@ The code has two layers, and so does the database (`src/lib/schema.sql`).
 **Platform core** — the same for every product:
 
 - `src/lib/accounts.ts` — an account is one customer of one product.
-- `src/lib/platform.ts` — the owner's side: accounts, plans, subscriptions, payments.
-- `src/lib/events.ts` — the audit trail of everything the owner does.
-- `src/lib/products.ts` — the registry of products. The owner dashboard reads
-  everything it needs about a product from here.
+- `src/lib/products.ts` — the registry of products.
+- `src/lib/internal.ts` and `src/pages/internal/` — the private interface the
+  owner dashboard calls for what only a product knows how to do.
+- `src/pages/enter.ts` — lets the owner open a customer's dashboard from theirs.
 - `src/lib/theme.ts` — a customer's look.
-- `src/pages/owner/` — the owner dashboard.
 
 **Products** — two so far.
 
@@ -62,7 +62,8 @@ Staff of every product sign in at `/login`.
 3. Register it in `products.ts`.
 4. Build its public pages and its dashboard.
 
-The owner dashboard, plans, subscriptions and the log then work for it unchanged.
+The owner dashboard then lists it, sells its plans and creates its customers
+with no change on its side.
 
 ## Going live
 
@@ -71,7 +72,7 @@ The owner dashboard, plans, subscriptions and the log then work for it unchanged
 2. Paste it into `.env.deploy` after `DATABASE_URL=`. That file is ignored by
    git and is read only by the two commands below.
 3. `npm run migrate` creates the tables.
-4. `npm run create-owner -- <email> "<name>"` adds your owner account and
-   prints its one-time password. Customers are then added from `/owner`.
-5. On the host (for example Vercel), set the same `DATABASE_URL` as an
-   environment variable and deploy.
+4. On the host (for example Vercel), set `DATABASE_URL` and
+   `INTERNAL_API_SECRET` as environment variables and deploy.
+5. Set up the owner dashboard project with the same two values; customers
+   are added from there.

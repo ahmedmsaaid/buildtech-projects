@@ -10,8 +10,7 @@
     "dev": "astro dev --port 4340",
     "build": "astro build",
     "check": "astro check",
-    "migrate": "node --env-file=.env.deploy scripts/migrate.mjs",
-    "create-owner": "node --env-file=.env.deploy scripts/create-owner.mjs"
+    "migrate": "node --env-file=.env.deploy scripts/migrate.mjs"
   },
   "dependencies": {
     "@astrojs/vercel": "^10.0.8",
@@ -27,6 +26,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@electric-sql/pglite-socket": "^0.2.20",
     "@types/node": "^22.20.5",
     "typescript": "^6.0.3"
   },
