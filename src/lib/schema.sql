@@ -154,6 +154,13 @@ create table if not exists events (
 create index if not exists events_by_time on events (created_at desc);
 create index if not exists events_by_account on events (account_id, created_at desc);
 
+-- Choices about the platform as a whole, made in the owner dashboard: one row
+-- per choice (how long a new customer's trial lasts, and so on).
+create table if not exists platform_settings (
+  key text primary key,
+  value text not null
+);
+
 -- ---------------------------------------------------------------------------
 -- The platform's own home page, managed from the owner dashboard.
 -- ---------------------------------------------------------------------------

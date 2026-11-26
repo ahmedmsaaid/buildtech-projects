@@ -24,13 +24,19 @@ export async function moveToOwnDatabase(account: Account, link: string, ref: str
   const clean = cleanLink(link);
   if (!clean) return { ok: false, reason: 'bad_link' };
 
-  let own: Awaited<ReturnType<typeof openDatabase>>;
-  try {
-    own = await openDatabase(clean);
-    await own.prepare();
-  } catch (error) {
-    console.error('Could not open or prepare a customer database:', error instanceof Error ? error.message : error);
-    return { ok: false, reason: 'unreachable' };
+  // A database made a moment ago can take a few seconds to accept its first
+  // connection, so a refusal is not believed until it has been asked a few times.
+  let own!: Awaited<ReturnType<typeof openDatabase>>;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      own = await openDatabase(clean);
+      await own.prepare();
+      break;
+    } catch (error) {
+      console.error(`Could not open or prepare a customer database (try ${attempt}):`, error instanceof Error ? error.message : error);
+      if (attempt >= 6) return { ok: false, reason: 'unreachable' };
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
   }
 
   const { tables } = productOf(account);
