@@ -32,7 +32,8 @@ if (Astro.request.method === 'POST') {
   const password = typeof form.get('password') === 'string' ? String(form.get('password')) : '';
 
   limited = signInLimiter.isLimited(Astro.clientAddress);
-  const accountId = limited ? null : await signIn(Astro.cookies, email, password);
+  // A customer's own address takes that customer's staff only.
+  const accountId = limited ? null : await signIn(Astro.cookies, email, password, Astro.locals.hostAccount?.slug);
   if (accountId) return Astro.redirect(await dashboardOf(accountId));
   failed = !limited;
 }

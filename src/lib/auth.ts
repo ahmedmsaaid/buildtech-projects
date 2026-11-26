@@ -39,13 +39,20 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-/** Signs in and sets the cookie. Returns the user's account id, or null for a wrong email or password. */
-export async function signIn(cookies: AstroCookies, email: string, password: string): Promise<string | null> {
-  const [user] = await query<{ id: string; account_id: string; password_hash: string }>(
-    'select id, account_id, password_hash from users where email = $1',
+/**
+ * Signs in and sets the cookie. Returns the user's account id, or null for a wrong email or password.
+ *
+ * `onlyAccountSlug` is given on a customer's own address: there, only that
+ * customer's staff may sign in. Anyone else gets the same answer as a wrong
+ * password, so the page does not reveal that the email exists elsewhere.
+ */
+export async function signIn(cookies: AstroCookies, email: string, password: string, onlyAccountSlug?: string): Promise<string | null> {
+  const [user] = await query<{ id: string; account_id: string; password_hash: string; slug: string }>(
+    'select users.id, users.account_id, users.password_hash, accounts.slug from users join accounts on accounts.id = users.account_id where users.email = $1',
     [email.trim().toLowerCase()],
   );
   if (!user || !passwordMatches(password, user.password_hash)) return null;
+  if (onlyAccountSlug && user.slug !== onlyAccountSlug) return null;
 
   await startSession(cookies, user.id);
   return user.account_id;

@@ -7,7 +7,10 @@ import type { APIRoute } from 'astro';
 import { isDemoProduct, startDemo } from '../lib/demo';
 import { demoLimiter } from '../lib/rate-limit';
 
-export const POST: APIRoute = async ({ request, cookies, clientAddress, redirect }) => {
+export const POST: APIRoute = async ({ request, cookies, clientAddress, redirect, locals }) => {
+  // Demos are BuildTech's offer; a customer's own address has only that customer on it.
+  if (locals.hostAccount) return redirect('/login');
+
   const product = (await request.formData()).get('product');
   if (!isDemoProduct(product)) return redirect('/');
   if (demoLimiter.isLimited(clientAddress)) return redirect('/login?demo=later');
