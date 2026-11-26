@@ -47,5 +47,8 @@ const body = theme ? bodyAttributes(theme) : color ? { style: `--accent: ${color
   <body {...body}>
     {isDemo && <p class="demo-bar">نسخة تجريبية من BuildTech · البيانات مش حقيقية</p>}
     <slot />
+    <script>
+      import '../scripts/feedback';
+    </script>
   </body>
 </html>

@@ -98,7 +98,7 @@ const initial = restaurant.name.trim().charAt(0);
       )
     }
     {!isOpen && <p class="notice notice--error" role="status"><Icon name="ban" />المطعم مش بيستقبل طلبات أونلاين دلوقتي. تقدر تتفرج على المنيو.</p>}
-    {isOpen && !canOrder && <p class="notice" role="status"><Icon name="building" />عشان تطلب، امسح الكود اللي على ترابيزتك.</p>}
+    {isOpen && !canOrder && <p class="notice" role="status" data-stay><Icon name="building" />عشان تطلب، امسح الكود اللي على ترابيزتك.</p>}
 
     {
       menu.length === 0 ? (
