@@ -7,7 +7,7 @@ import Icon from '../../../../components/Icon.astro';
 import Base from '../../../../layouts/Base.astro';
 import { themeOf } from '../../../../lib/theme';
 import { bookAppointment, getBookableDays, getSlots } from '../../../../lib/appointments';
-import { getClinicBySlug, getServices, getWorkingWeek } from '../../../../lib/clinics';
+import { getClinicBySlug, getServices, getStaff, getWorkingWeek } from '../../../../lib/clinics';
 import { wordsForBooking } from '../../../../lib/words';
 import { bookingLimiter } from '../../../../lib/rate-limit';
 import { formatDay, formatMinute, formatShortDay, nowIn, periodNames, periodOf, weekdayNames, weekdayOf } from '../../../../lib/time';
@@ -18,17 +18,20 @@ if (!clinic) return new Response(null, { status: 404 });
 const w = wordsForBooking(clinic.product);
 
 const isSuspended = clinic.status === 'suspended';
-const [bookableDays, services, week] = await Promise.all([getBookableDays(clinic), getServices(clinic.id), getWorkingWeek(clinic.id)]);
+const [bookableDays, services, week, team] = await Promise.all([getBookableDays(clinic), getServices(clinic.id), getWorkingWeek(clinic.id), getStaff(clinic.id)]);
 // With no days to choose from, the page shows "call the clinic" and the form is gone.
 const days = isSuspended ? [] : bookableDays;
 
 const problems: string[] = [];
 let typed = { name: '', phone: '', note: '', serviceId: services[0]?.id ?? '', minute: -1 };
 let day = Astro.url.searchParams.get('date') ?? '';
+// The team member the visitor chose; empty means whoever is free.
+let staffId = Astro.url.searchParams.get('staff') ?? '';
 
 if (Astro.request.method === 'POST' && !isSuspended) {
   const form = await Astro.request.formData();
   day = text(form, 'day', 10);
+  staffId = text(form, 'staff', 40);
   typed = {
     name: text(form, 'name', 80),
     phone: text(form, 'phone', 20),
@@ -51,6 +54,7 @@ if (Astro.request.method === 'POST' && !isSuspended) {
       day,
       minute: typed.minute,
       serviceId: typed.serviceId,
+      staffId: staffId || undefined,
       patientName: typed.name,
       patientPhone: mobile,
       note: typed.note,
@@ -69,7 +73,10 @@ if (Astro.request.method === 'POST' && !isSuspended) {
 }
 
 if (!days.includes(day)) day = days[0] ?? '';
-const slots = day ? await getSlots(clinic, day) : [];
+if (!team.some((member) => member.id === staffId)) staffId = '';
+// Carried in every link and in the form, so the choice survives picking another day.
+const staffQuery = staffId ? `&staff=${staffId}` : '';
+const slots = day ? await getSlots(clinic, day, { staffId: staffId || undefined }) : [];
 const freeCount = slots.filter((slot) => slot.free).length;
 
 const periods = (['morning', 'afternoon', 'evening'] as const)
@@ -153,6 +160,24 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
             <li>بياناتك</li>
           </ol>
 
+          {
+            team.length > 1 && (
+              <section class="card" aria-labelledby="who-title">
+                <h2 id="who-title" class="card__title"><Icon name="users" />اختار {w.pro}</h2>
+                <div class="services">
+                  <div class="pick">
+                    <a class="pick__face" href={`?date=${day}#who-title`} aria-current={staffId === '' ? 'true' : undefined}>{w.anyPro}</a>
+                  </div>
+                  {team.map((member) => (
+                    <div class="pick">
+                      <a class="pick__face" href={`?date=${day}&staff=${member.id}#who-title`} aria-current={member.id === staffId ? 'true' : undefined}>{member.name}</a>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )
+          }
+
           <section class="card" aria-labelledby="day-title">
             <div class="card__head">
               <h2 id="day-title" class="card__title"><Icon name="calendar" />اختار اليوم</h2>
@@ -161,7 +186,7 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
             <div class="daybar">
               {days.map((option) => (
                 <div class="pick">
-                  <a class="pick__face" href={`?date=${option}#time-title`} aria-current={option === day ? 'true' : undefined}>
+                  <a class="pick__face" href={`?date=${option}${staffQuery}#time-title`} aria-current={option === day ? 'true' : undefined}>
                     <small>{option === today ? 'النهارده' : weekdayNames[weekdayOf(option)]}</small>
                     <strong>{Number(option.slice(8))}</strong>
                     <small>{formatShortDay(option).split(' ')[1]}</small>
@@ -171,8 +196,9 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
             </div>
           </section>
 
-          <form class="stack" method="post" action={`?date=${day}`}>
+          <form class="stack" method="post" action={`?date=${day}${staffQuery}`}>
             <input type="hidden" name="day" value={day} />
+            <input type="hidden" name="staff" value={staffId} />
 
             <fieldset class="card">
               <div class="card__head">

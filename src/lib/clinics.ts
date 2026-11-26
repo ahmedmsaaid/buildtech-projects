@@ -122,6 +122,36 @@ export async function updateService(clinicId: string, id: string, changes: { nam
   ]);
 }
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+/** The people who take bookings, in the place's order. Empty for a place that works as one. */
+export function getStaff(clinicId: string, options: { includeRetired?: boolean } = {}): Promise<StaffMember[]> {
+  const activeOnly = options.includeRetired ? '' : 'and is_active';
+  return queryFor<StaffMember>(
+    clinicId,
+    `select id, name, sort_order, is_active from staff where clinic_id = $1 ${activeOnly} order by is_active desc, sort_order, name`,
+    [clinicId],
+  );
+}
+
+export async function addStaff(clinicId: string, name: string): Promise<void> {
+  await queryFor(
+    clinicId,
+    `insert into staff (id, clinic_id, name, sort_order)
+     values ($1, $2, $3, (select coalesce(max(sort_order), 0) + 1 from staff where clinic_id = $2))`,
+    [newId(), clinicId, name],
+  );
+}
+
+export async function updateStaff(clinicId: string, id: string, changes: { name: string; is_active: boolean }): Promise<void> {
+  await queryFor(clinicId, 'update staff set name = $3, is_active = $4 where clinic_id = $1 and id = $2', [clinicId, id, changes.name, changes.is_active]);
+}
+
 /** What a clinic edits in its own settings: its name and its whole profile. */
 export type ClinicDetails = { name: string } & ClinicProfile;
 

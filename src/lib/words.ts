@@ -27,8 +27,11 @@ export interface BookingWords {
   /** The same, plural: المرضى / مرضى. */
   clients: string;
   clients1: string;
-  /** Who does the work, with "the": الدكتور. */
+  /** Who does the work, with "the": الدكتور. Then one of them, all of them, and the offer of whoever is free. */
   pro: string;
+  pro1: string;
+  pros: string;
+  anyPro: string;
   /** What the specialty field asks for. */
   specialtyLabel: string;
   /** A finished visit, as staff see it and as the visitor is told. */
@@ -57,6 +60,9 @@ const bookingWords: Record<string, BookingWords> = {
     clients: 'المرضى',
     clients1: 'مرضى',
     pro: 'الدكتور',
+    pro1: 'دكتور',
+    pros: 'الدكاترة',
+    anyPro: 'أي دكتور متاح',
     specialtyLabel: 'التخصص',
     done: 'تم الكشف',
     doneForClient: 'تم الكشف. بالشفا',
@@ -78,6 +84,9 @@ const bookingWords: Record<string, BookingWords> = {
     clients: 'العملاء',
     clients1: 'عملاء',
     pro: 'الحلاق',
+    pro1: 'حلاق',
+    pros: 'الحلاقين',
+    anyPro: 'أي حلاق فاضي',
     specialtyLabel: 'نوع الصالون (رجالي، أطفال...)',
     done: 'خلص',
     doneForClient: 'خلصنا. نعيماً',

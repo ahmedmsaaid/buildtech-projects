@@ -57,6 +57,18 @@ create table if not exists closed_days (
   primary key (clinic_id, day)
 );
 
+-- The people who take the bookings: a salon's barbers, a clinic's doctors.
+-- Optional. A place with none takes one booking per slot; with a team, each
+-- member takes one, and the visitor may choose whom.
+create table if not exists staff (
+  id text primary key,
+  clinic_id text not null references clinics (id) on delete cascade,
+  name text not null,
+  sort_order integer not null default 0,
+  -- Someone who left stays, so their past bookings keep their name.
+  is_active boolean not null default true
+);
+
 create table if not exists services (
   id text primary key,
   clinic_id text not null references clinics (id) on delete cascade,
@@ -90,10 +102,17 @@ create table if not exists appointments (
   created_at timestamptz not null default now()
 );
 
--- One live appointment per slot. This is what makes double booking
--- impossible, even when two patients press "book" at the same moment.
-create unique index if not exists appointments_slot_taken
-  on appointments (clinic_id, day, start_minute)
+-- Who takes the booking, when the place has a team. The name is copied so it
+-- survives the member being renamed or removed.
+alter table appointments add column if not exists staff_id text references staff (id) on delete set null;
+alter table appointments add column if not exists staff_name text not null default '';
+
+-- One live appointment per slot and per team member (or per slot, for a
+-- place without a team). This is what makes double booking impossible, even
+-- when two people press "book" at the same moment.
+drop index if exists appointments_slot_taken;
+create unique index if not exists appointments_slot_taken_by
+  on appointments (clinic_id, day, start_minute, coalesce(staff_id, ''))
   where status <> 'cancelled';
 
 create index if not exists appointments_by_day on appointments (clinic_id, day);

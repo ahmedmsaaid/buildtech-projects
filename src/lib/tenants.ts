@@ -19,7 +19,7 @@ type Params = (string | number | boolean | null)[];
  * The version of schema-products.sql. Raise it whenever that file changes:
  * each customer's database is brought up to date the next time it is used.
  */
-export const PRODUCT_SCHEMA_VERSION = 1;
+export const PRODUCT_SCHEMA_VERSION = 2;
 
 /** The product tables as a customer's own database has them: with no `accounts` table to point at. */
 const ownDatabaseSchema = productSchema.replaceAll(' references accounts (id) on delete cascade', '');

@@ -63,6 +63,7 @@ function bookingProduct(named: Named): Product {
       { name: 'working_hours', where: 'clinic_id = $1' },
       { name: 'closed_days', where: 'clinic_id = $1' },
       { name: 'services', where: 'clinic_id = $1' },
+      { name: 'staff', where: 'clinic_id = $1' },
       { name: 'appointments', where: 'clinic_id = $1' },
       { name: 'patient_notes', where: 'clinic_id = $1' },
     ],

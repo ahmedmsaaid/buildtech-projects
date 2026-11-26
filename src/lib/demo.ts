@@ -78,6 +78,7 @@ export async function startDemo(product: DemoProduct, cookies: AstroCookies): Pr
       specialty: 'حلاقة رجالي وأطفال',
       about: 'حلاقة رجالي وأطفال بإيد أسطوات خبرة. احجز دورك من الموبايل وتعالى على ميعادك من غير انتظار.',
       offers: barberServices,
+      team: [contact, 'الأسطى محمود', 'الأسطى علي'],
       note: 'بيحب القصّة قصيرة من الجناب ودرجة 2. دقنه بتتحدد بالموس.',
     });
   } else {

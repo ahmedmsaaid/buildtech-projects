@@ -17,7 +17,7 @@ import {
   type Appointment,
   type AppointmentStatus,
 } from '../../lib/appointments';
-import { getServices } from '../../lib/clinics';
+import { getServices, getStaff } from '../../lib/clinics';
 import { wordsForBooking } from '../../lib/words';
 import { addDays, formatDay, formatMinute, isDay, nowIn, weekdayNames, weekdayOf } from '../../lib/time';
 import { egyptianMobile, text, whatsappNumber, wholeNumber } from '../../lib/validate';
@@ -67,6 +67,7 @@ if (Astro.request.method === 'POST') {
         day,
         minute: Number(text(form, 'minute', 5) || -1),
         serviceId: text(form, 'service', 40),
+        staffId: text(form, 'staff', 40) || undefined,
         patientName: typed.name,
         patientPhone: mobile,
         source: 'staff',
@@ -81,11 +82,12 @@ if (Astro.request.method === 'POST') {
 const weekStart = addDays(day, -((weekdayOf(day) + 1) % 7));
 const weekDays = Array.from({ length: 7 }, (_, offset) => addDays(weekStart, offset));
 
-const [appointments, slots, services, counts] = await Promise.all([
+const [appointments, slots, services, counts, team] = await Promise.all([
   getAppointmentsOn(clinic.id, day),
   getSlots(clinic, day, { forStaff: true }),
   getServices(clinic.id),
   getDayCounts(clinic.id, weekStart, weekDays[6]),
+  getStaff(clinic.id),
 ]);
 
 const live = appointments.filter((appointment) => appointment.status !== 'cancelled');
@@ -190,6 +192,12 @@ function reminderLink(appointment: Appointment): string {
               <li class="tl">
                 <span class="tl__time">{formatMinute(row.minute)}</span>
                 <div class="stack">
+                  {/* With a team, a slot that already has a booking may still have someone free. */}
+                  {row.visits.length > 0 && row.slot?.free && (
+                    <a class="tl__free no-print" href={`${dayPath}&minute=${row.minute}#add-title`}>
+                      لسه فيه مكان <span class="row"><Icon name="plus" />احجز</span>
+                    </a>
+                  )}
                   {row.visits.length === 0 &&
                     (row.slot?.free ? (
                       <a class="tl__free no-print" href={`${dayPath}&minute=${row.minute}#add-title`}>
@@ -209,6 +217,7 @@ function reminderLink(appointment: Appointment): string {
                             <p class="muted small">
                               {appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}
                               {appointment.source === 'online' ? ' · أونلاين' : ` · من ${w.place}`}
+                              {appointment.staff_name && ` · مع ${appointment.staff_name}`}
                             </p>
                           </div>
                         </div>
@@ -329,6 +338,15 @@ function reminderLink(appointment: Appointment): string {
                   </select>
                 </div>
               </div>
+              {team.length > 0 && (
+                <div class="field">
+                  <label for="add-staff">{w.pro}</label>
+                  <select id="add-staff" name="staff">
+                    <option value="">{w.anyPro}</option>
+                    {team.map((member) => <option value={member.id}>{member.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div class="field">
                 <label for="add-name">اسم {w.client}</label>
                 <input id="add-name" name="name" type="text" value={typed.name} required minlength="3" maxlength="80" />

@@ -91,10 +91,10 @@ const headline: Record<typeof appointment.status, string> = {
           <dd>{appointment.patient_name}</dd>
           <dt>الزيارة</dt>
           <dd>{appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}</dd>
-          {clinic.doctor_name && (
+          {(appointment.staff_name || clinic.doctor_name) && (
             <>
               <dt>{w.pro}</dt>
-              <dd>{clinic.doctor_name}</dd>
+              <dd>{appointment.staff_name || clinic.doctor_name}</dd>
             </>
           )}
           {clinic.address && (

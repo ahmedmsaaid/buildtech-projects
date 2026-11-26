@@ -152,6 +152,8 @@ export async function fillClinic(
     offers?: [name: string, price: number][];
     /** The private note kept on the first client. */
     note?: string;
+    /** The people who take the bookings, for a place where the visitor chooses one. */
+    team?: string[];
   },
 ): Promise<void> {
   const services = profile.offers ?? clinicServices;
@@ -178,6 +180,12 @@ export async function fillClinic(
     serviceIds.push(serviceId);
     await run('insert into services (id, clinic_id, name, price, sort_order) values ($1, $2, $3, $4, $5)', [serviceId, accountId, name, price, order + 1]);
   }
+  const team: { id: string; name: string }[] = [];
+  for (const [order, name] of (profile.team ?? []).entries()) {
+    const id = crypto.randomUUID();
+    team.push({ id, name });
+    await run('insert into staff (id, clinic_id, name, sort_order) values ($1, $2, $3, $4)', [id, accountId, name, order + 1]);
+  }
   if (profile.withVisits === false) return;
 
   // Past days are finished visits with a few no-shows; today and the coming days are bookings.
@@ -197,10 +205,11 @@ export async function fillClinic(
       const service = pick(seed + 3, services.length);
       const [serviceName, price] = services[service];
       const status = offset >= 0 ? 'booked' : pick(seed + 11, 9) === 0 ? 'no_show' : 'done';
+      const member = team.length > 0 ? team[pick(seed + 13, team.length)] : null;
 
       await run(
-        `insert into appointments (id, clinic_id, service_id, service_name, price, paid, day, start_minute, patient_name, patient_phone, status, source)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        `insert into appointments (id, clinic_id, service_id, service_name, price, paid, day, start_minute, patient_name, patient_phone, status, source, staff_id, staff_name)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           crypto.randomUUID(),
           accountId,
@@ -214,6 +223,8 @@ export async function fillClinic(
           phone,
           status,
           pick(seed + 5, 3) === 0 ? 'staff' : 'online',
+          member?.id ?? null,
+          member?.name ?? '',
         ],
       );
     }

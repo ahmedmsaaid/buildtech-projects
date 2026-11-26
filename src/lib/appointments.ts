@@ -1,5 +1,5 @@
 /** Booking rules: free slots, taking one, the waiting queue, payments, and the staff's views. */
-import { getClosedDays, getServices, getWorkingWeek, isClosedDay, type Clinic } from './clinics';
+import { getClosedDays, getServices, getStaff, getWorkingWeek, isClosedDay, type Clinic } from './clinics';
 import { isUniqueViolation, newId } from './db';
 import { queryFor } from './tenants';
 import { addDays, daysBetween, isDay, nowIn, weekdayOf } from './time';
@@ -27,6 +27,8 @@ export interface Appointment {
   note: string;
   status: AppointmentStatus;
   source: 'online' | 'staff';
+  /** Who takes it, when the place has a team; empty otherwise. */
+  staff_name: string;
   /** Set when the patient was marked as arrived; orders the waiting queue. */
   arrived_at: string | Date | null;
 }
@@ -48,21 +50,38 @@ export async function getBookableDays(clinic: Clinic): Promise<string[]> {
 /**
  * Every slot of a day with whether it is still free.
  * `forStaff` drops the notice period: the desk may fit someone in right now.
+ * `staffId` asks about one team member; without it a slot is free while
+ * anyone on the team is.
  */
-export async function getSlots(clinic: Clinic, day: string, options: { forStaff?: boolean } = {}): Promise<{ minute: number; free: boolean }[]> {
+export async function getSlots(
+  clinic: Clinic,
+  day: string,
+  options: { forStaff?: boolean; staffId?: string } = {},
+): Promise<{ minute: number; free: boolean }[]> {
   const hours = (await getWorkingWeek(clinic.id))[weekdayOf(day)];
   if (!hours.is_open || (await isClosedDay(clinic.id, day))) return [];
 
-  const taken = await queryFor<{ start_minute: number }>(clinic.id, 
-    "select start_minute from appointments where clinic_id = $1 and day = $2 and status <> 'cancelled'",
-    [clinic.id, day],
-  );
+  const [taken, team] = await Promise.all([
+    queryFor<{ start_minute: number; staff_id: string | null }>(
+      clinic.id,
+      "select start_minute, staff_id from appointments where clinic_id = $1 and day = $2 and status <> 'cancelled'",
+      [clinic.id, day],
+    ),
+    getStaff(clinic.id),
+  ]);
 
   // A slot is taken when a booking overlaps it, not only when one starts at
   // the same minute: bookings made before the clinic changed its appointment
   // length no longer line up with the current slots.
   const length = clinic.slot_minutes;
-  const isTaken = (minute: number) => taken.some((row) => row.start_minute < minute + length && row.start_minute + length > minute);
+  // A booking with nobody's name on it (made before the place had a team) keeps everyone busy.
+  const isBusy = (minute: number, member: string | null) =>
+    taken.some((row) => row.start_minute < minute + length && row.start_minute + length > minute && (member === null || row.staff_id === null || row.staff_id === member));
+  const isTaken = (minute: number) => {
+    if (team.length === 0) return isBusy(minute, null);
+    if (options.staffId) return isBusy(minute, options.staffId);
+    return team.every((member) => isBusy(minute, member.id));
+  };
 
   const now = nowIn(clinic.timezone);
   const earliest = day === now.day ? now.minute + (options.forStaff ? 0 : NOTICE_MINUTES) : 0;
@@ -78,6 +97,8 @@ export interface BookingRequest {
   day: string;
   minute: number;
   serviceId: string;
+  /** The team member asked for. Left out, whoever is free takes it. */
+  staffId?: string;
   patientName: string;
   patientPhone: string;
   note?: string;
@@ -97,27 +118,50 @@ export async function bookAppointment(clinic: Clinic, request: BookingRequest): 
   if (!service) return { ok: false, reason: 'unknown_service' };
 
   const forStaff = request.source === 'staff';
-  if (!forStaff && !(await getBookableDays(clinic)).includes(request.day)) return { ok: false, reason: 'slot_unavailable' };
+  if (!forStaff && !(await getBookableDays(clinic)).includes(request.day)) return { ok: false, reason: 'slot_unavailable' };  // Who may take it: the member asked for, anyone on the team, or nobody in particular for a place without one.
+  const team = await getStaff(clinic.id);
+  const asked = request.staffId ? team.find((member) => member.id === request.staffId) : undefined;
+  if (request.staffId && !asked) return { ok: false, reason: 'slot_unavailable' };
+  const candidates = team.length === 0 ? [null] : asked ? [asked] : team;
 
-  const slot = (await getSlots(clinic, request.day, { forStaff })).find((candidate) => candidate.minute === request.minute);
+  const slot = (await getSlots(clinic, request.day, { forStaff, staffId: asked?.id })).find((candidate) => candidate.minute === request.minute);
   if (!slot) return { ok: false, reason: 'slot_unavailable' };
   if (!slot.free) return { ok: false, reason: 'slot_taken' };
 
+  // The first candidate whose slot is still empty gets it. The unique index is
+  // the judge: a member who is already booked refuses, and the next is tried.
   const id = newId();
-  try {
-    await queryFor(clinic.id, 
-      `insert into appointments (id, clinic_id, service_id, service_name, price, day, start_minute, patient_name, patient_phone, note, source)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [id, clinic.id, service.id, service.name, service.price, request.day, request.minute, request.patientName, request.patientPhone, request.note ?? '', request.source],
-    );
-  } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, reason: 'slot_taken' };
-    throw error;
+  for (const member of candidates) {
+    try {
+      await queryFor(
+        clinic.id,
+        `insert into appointments (id, clinic_id, service_id, service_name, price, day, start_minute, patient_name, patient_phone, note, source, staff_id, staff_name)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [
+          id,
+          clinic.id,
+          service.id,
+          service.name,
+          service.price,
+          request.day,
+          request.minute,
+          request.patientName,
+          request.patientPhone,
+          request.note ?? '',
+          request.source,
+          member?.id ?? null,
+          member?.name ?? '',
+        ],
+      );
+      return { ok: true, id };
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+    }
   }
-  return { ok: true, id };
+  return { ok: false, reason: 'slot_taken' };
 }
 
-const APPOINTMENT_COLUMNS = 'id, service_name, price, paid, day, start_minute, patient_name, patient_phone, note, status, source, arrived_at';
+const APPOINTMENT_COLUMNS = 'id, service_name, price, paid, day, start_minute, patient_name, patient_phone, note, status, source, arrived_at, staff_name';
 
 export function getAppointmentsOn(clinicId: string, day: string): Promise<Appointment[]> {
   return queryFor<Appointment>(clinicId, `select ${APPOINTMENT_COLUMNS} from appointments where clinic_id = $1 and day = $2 order by start_minute, created_at`, [
