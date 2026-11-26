@@ -1,5 +1,6 @@
 /**
- * The one door to the database. Everything else calls `query`.
+ * The one door to the platform's database. A customer's own records go
+ * through `queryFor` (tenants.ts), which may lead to a database of theirs.
  *
  * With DATABASE_URL set it talks to that Postgres server (production).
  * Without it, it keeps a real Postgres database in the .data folder, so the
@@ -7,6 +8,7 @@
  * filled with demo data.
  * Both speak the same SQL, so the rest of the code does not know which is in use.
  */
+import productSchema from './schema-products.sql?raw';
 import schema from './schema.sql?raw';
 
 type Params = (string | number | boolean | null)[];
@@ -70,6 +72,7 @@ async function connect(): Promise<Database> {
   mkdirSync('./.data', { recursive: true });
   const local = new PGlite('./.data/postgres');
   await local.exec(schema);
+  await local.exec(productSchema);
   const run: Runner = async (text, params = []) => (await local.query(text, params)).rows as never;
 
   const { seedDemoData } = await import('./dev-seed');

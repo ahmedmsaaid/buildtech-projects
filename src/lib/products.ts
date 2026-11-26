@@ -26,6 +26,13 @@ export interface Product {
   setUp(accountId: string, answers: Record<string, string>, contactPhone: string): Promise<void>;
   /** A few figures that show how much the account is being used. */
   usage(accountId: string, since: string): Promise<{ label: string; value: string }[]>;
+  /**
+   * The product's tables (schema-products.sql), each with the condition that
+   * picks one account's rows, where $1 is the account's id. Listed so that a
+   * table comes after the ones it points at; deleting the account's row in
+   * the first removes its rows in all the others.
+   */
+  tables: { name: string; where: string }[];
 }
 
 export const products: Record<string, Product> = {
@@ -47,6 +54,14 @@ export const products: Record<string, Product> = {
     setUp: (accountId, answers, contactPhone) =>
       setUpClinic(accountId, { doctorName: answers.doctor_name ?? '', specialty: answers.specialty ?? '', phone: contactPhone }),
     usage: getClinicUsage,
+    tables: [
+      { name: 'clinics', where: 'id = $1' },
+      { name: 'working_hours', where: 'clinic_id = $1' },
+      { name: 'closed_days', where: 'clinic_id = $1' },
+      { name: 'services', where: 'clinic_id = $1' },
+      { name: 'appointments', where: 'clinic_id = $1' },
+      { name: 'patient_notes', where: 'clinic_id = $1' },
+    ],
   },
   restaurant: {
     key: 'restaurant',
@@ -62,6 +77,13 @@ export const products: Record<string, Product> = {
     setupFields: [{ name: 'cuisine', label: 'نوع الأكل' }],
     setUp: (accountId, answers, contactPhone) => setUpRestaurant(accountId, { cuisine: answers.cuisine ?? '', phone: contactPhone }),
     usage: getRestaurantUsage,
+    tables: [
+      { name: 'restaurants', where: 'id = $1' },
+      { name: 'menu_categories', where: 'restaurant_id = $1' },
+      { name: 'menu_items', where: 'restaurant_id = $1' },
+      { name: 'orders', where: 'restaurant_id = $1' },
+      { name: 'order_items', where: 'order_id in (select id from orders where restaurant_id = $1)' },
+    ],
   },
 };
 

@@ -1,14 +1,11 @@
 -- Database schema. Safe to run more than once.
 --
--- It has two layers:
+-- This is the platform core: who the customers are, what they pay, who can
+-- sign in, and the platform's own home page. It knows nothing about clinics
+-- or any other product, and it lives in the platform's own database only.
 --
---   1. The platform core: who the customers are, what they pay, and who can
---      sign in. It knows nothing about clinics or any other product.
---   2. Products. Each product keeps its own tables and hangs them off an
---      account. The clinic product is the only one so far.
---
--- A new product adds its own tables below and registers itself in
--- src/lib/products.ts. The core does not change.
+-- What a customer keeps (bookings, menus, orders) is in schema-products.sql,
+-- which is also what a customer's own database is made of.
 
 -- ===========================================================================
 -- 1. Platform core
@@ -73,6 +70,17 @@ create index if not exists accounts_demos on accounts (demo_expires_at) where de
 -- platform's home page (see middleware.ts). Null for customers without one.
 alter table accounts add column if not exists domain text;
 create unique index if not exists accounts_domain on accounts (domain) where domain is not null;
+
+-- A customer's own database, when they have one: their bookings, menu and
+-- orders live there instead of here (see tenants.ts). The link holds that
+-- database's password, so it is stored encrypted. Null keeps the customer's
+-- records in this database, as demos always are.
+alter table accounts add column if not exists database_url text;
+-- The database's id at the host that made it (a Neon project), so it can be
+-- removed there. Null for a database the owner made by hand.
+alter table accounts add column if not exists database_ref text;
+-- Which version of schema-products.sql that database has (see tenants.ts).
+alter table accounts add column if not exists database_schema integer not null default 0;
 
 -- People who sign in to an account's dashboard.
 create table if not exists users (
@@ -145,187 +153,6 @@ create table if not exists events (
 
 create index if not exists events_by_time on events (created_at desc);
 create index if not exists events_by_account on events (account_id, created_at desc);
-
--- ===========================================================================
--- 2. Product: clinic booking
---
--- Times are stored the way a clinic thinks about them: the calendar day as
--- 'YYYY-MM-DD' text and the time as minutes after midnight, both in the
--- account's own timezone. That keeps time zones out of every query.
--- ===========================================================================
-
--- What makes an account a clinic. Shares its id with the account.
-create table if not exists clinics (
-  id text primary key references accounts (id) on delete cascade,
-  specialty text not null default '',
-  doctor_name text not null default '',
-  address text not null default '',
-  phone text not null default '',
-  whatsapp text not null default '',
-  -- A short paragraph and a map link for the public page.
-  about text not null default '',
-  map_url text not null default '',
-  -- Length of one appointment.
-  slot_minutes integer not null default 20 check (slot_minutes between 5 and 240),
-  -- How many days ahead patients may book.
-  booking_days integer not null default 14 check (booking_days between 1 and 90),
-  -- Patients may cancel online until this many hours before the appointment.
-  cancel_hours integer not null default 2 check (cancel_hours between 0 and 72)
-);
-
-create table if not exists working_hours (
-  clinic_id text not null references clinics (id) on delete cascade,
-  -- 0 is Sunday, 6 is Saturday.
-  weekday integer not null check (weekday between 0 and 6),
-  is_open boolean not null default false,
-  open_minute integer not null default 1020,
-  close_minute integer not null default 1320,
-  primary key (clinic_id, weekday),
-  check (open_minute >= 0 and close_minute <= 1440 and open_minute < close_minute)
-);
-
--- Single days the clinic is closed (holidays, travel), on top of the weekly hours.
-create table if not exists closed_days (
-  clinic_id text not null references clinics (id) on delete cascade,
-  day text not null check (day ~ '^\d{4}-\d{2}-\d{2}$'),
-  reason text not null default '',
-  primary key (clinic_id, day)
-);
-
-create table if not exists services (
-  id text primary key,
-  clinic_id text not null references clinics (id) on delete cascade,
-  name text not null,
-  -- Whole Egyptian pounds. 0 shows no price.
-  price integer not null default 0 check (price >= 0),
-  sort_order integer not null default 0,
-  -- Retired services stay, so old appointments keep their service.
-  is_active boolean not null default true
-);
-
-create table if not exists appointments (
-  id text primary key,
-  clinic_id text not null references clinics (id) on delete cascade,
-  service_id text references services (id) on delete set null,
-  -- Copied at booking time, so later edits to a service do not rewrite history.
-  service_name text not null default '',
-  price integer not null default 0,
-  -- What the patient actually paid, in whole pounds.
-  paid integer not null default 0 check (paid >= 0),
-  day text not null check (day ~ '^\d{4}-\d{2}-\d{2}$'),
-  start_minute integer not null check (start_minute between 0 and 1439),
-  patient_name text not null,
-  patient_phone text not null,
-  note text not null default '',
-  status text not null default 'booked' check (status in ('booked', 'arrived', 'done', 'no_show', 'cancelled')),
-  -- Who made it: the patient online, or staff at the desk.
-  source text not null default 'online' check (source in ('online', 'staff')),
-  -- When the patient was marked as arrived: this is their place in the queue.
-  arrived_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
--- One live appointment per slot. This is what makes double booking
--- impossible, even when two patients press "book" at the same moment.
-create unique index if not exists appointments_slot_taken
-  on appointments (clinic_id, day, start_minute)
-  where status <> 'cancelled';
-
-create index if not exists appointments_by_day on appointments (clinic_id, day);
-create index if not exists appointments_by_phone on appointments (clinic_id, patient_phone);
-
--- The clinic's private note about a patient. Patients are known by phone number.
-create table if not exists patient_notes (
-  clinic_id text not null references clinics (id) on delete cascade,
-  patient_phone text not null,
-  note text not null default '',
-  primary key (clinic_id, patient_phone)
-);
-
--- ===========================================================================
--- 3. Product: restaurant menu and orders
---
--- Guests open the menu from a QR code on their table, or from a link, and
--- order from their phone. The kitchen sees orders arrive on its dashboard.
--- ===========================================================================
-
--- What makes an account a restaurant. Shares its id with the account.
-create table if not exists restaurants (
-  id text primary key references accounts (id) on delete cascade,
-  cuisine text not null default '',
-  address text not null default '',
-  phone text not null default '',
-  whatsapp text not null default '',
-  about text not null default '',
-  map_url text not null default '',
-  -- Opening hours as the restaurant writes them, e.g. "يومياً من 12 الضهر لـ 12 بالليل".
-  hours_note text not null default '',
-  -- Tables are numbered 1 to this. Each gets its own QR code.
-  tables_count integer not null default 10 check (tables_count between 0 and 200),
-  -- Off pauses ordering; the menu stays readable.
-  accepts_orders boolean not null default true,
-  -- Whether guests may order without a table, to collect.
-  allows_pickup boolean not null default true,
-  -- Shown to guests as roughly how long an order takes.
-  prep_minutes integer not null default 20 check (prep_minutes between 1 and 240)
-);
-
-create table if not exists menu_categories (
-  id text primary key,
-  restaurant_id text not null references restaurants (id) on delete cascade,
-  name text not null,
-  sort_order integer not null default 0,
-  is_active boolean not null default true
-);
-
-create table if not exists menu_items (
-  id text primary key,
-  restaurant_id text not null references restaurants (id) on delete cascade,
-  category_id text not null references menu_categories (id) on delete cascade,
-  name text not null,
-  description text not null default '',
-  -- Whole Egyptian pounds.
-  price integer not null default 0 check (price >= 0),
-  -- Off shows the item as sold out for now.
-  is_available boolean not null default true,
-  sort_order integer not null default 0
-);
-
-create index if not exists menu_items_by_category on menu_items (restaurant_id, category_id, sort_order);
-
-create table if not exists orders (
-  id text primary key,
-  restaurant_id text not null references restaurants (id) on delete cascade,
-  -- A short number that restarts every day; what staff and guests call the order.
-  number integer not null,
-  -- The calendar day in the restaurant's timezone, as 'YYYY-MM-DD'.
-  day text not null check (day ~ '^\d{4}-\d{2}-\d{2}$'),
-  type text not null check (type in ('dine_in', 'pickup')),
-  -- Set for dine-in orders.
-  table_number integer,
-  customer_name text not null default '',
-  customer_phone text not null default '',
-  note text not null default '',
-  status text not null default 'new' check (status in ('new', 'preparing', 'ready', 'done', 'cancelled')),
-  -- Sum of the lines below, fixed when the order was placed.
-  total integer not null default 0 check (total >= 0),
-  created_at timestamptz not null default now(),
-  unique (restaurant_id, day, number)
-);
-
-create index if not exists orders_by_day on orders (restaurant_id, day, created_at);
-
-create table if not exists order_items (
-  id text primary key,
-  order_id text not null references orders (id) on delete cascade,
-  item_id text references menu_items (id) on delete set null,
-  -- Copied when the order was placed, so later menu edits do not rewrite it.
-  name text not null,
-  price integer not null,
-  quantity integer not null check (quantity between 1 and 50)
-);
-
-create index if not exists order_items_by_order on order_items (order_id);
 
 -- ---------------------------------------------------------------------------
 -- The platform's own home page, managed from the owner dashboard.

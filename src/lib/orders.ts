@@ -1,5 +1,6 @@
 /** Orders: placing one, the kitchen's view of the day, moving an order along, and reports. */
-import { isUniqueViolation, newId, query } from './db';
+import { isUniqueViolation, newId } from './db';
+import { queryFor } from './tenants';
 import { getMenu, type Restaurant } from './restaurants';
 import { nowIn } from './time';
 
@@ -88,7 +89,7 @@ export async function placeOrder(restaurant: Restaurant, request: OrderRequest):
   // one; the unique index refuses the second, which then simply tries again.
   for (let attempt = 0; ; attempt++) {
     try {
-      await query(
+      await queryFor(restaurant.id, 
         `insert into orders (id, restaurant_id, number, day, type, table_number, customer_name, customer_phone, note, total)
          values ($1, $2, (select coalesce(max(number), 0) + 1 from orders where restaurant_id = $2 and day = $3), $3, $4, $5, $6, $7, $8, $9)`,
         [id, restaurant.id, day, isDineIn ? 'dine_in' : 'pickup', request.tableNumber, request.customerName, request.customerPhone, request.note, total],
@@ -100,7 +101,7 @@ export async function placeOrder(restaurant: Restaurant, request: OrderRequest):
   }
 
   for (const line of lines) {
-    await query('insert into order_items (id, order_id, item_id, name, price, quantity) values ($1, $2, $3, $4, $5, $6)', [
+    await queryFor(restaurant.id, 'insert into order_items (id, order_id, item_id, name, price, quantity) values ($1, $2, $3, $4, $5, $6)', [
       newId(),
       id,
       line.item!.id,
@@ -114,10 +115,10 @@ export async function placeOrder(restaurant: Restaurant, request: OrderRequest):
 
 const ORDER_COLUMNS = 'id, number, day, type, table_number, customer_name, customer_phone, note, status, total, created_at';
 
-async function withLines(orders: Omit<Order, 'lines'>[]): Promise<Order[]> {
+async function withLines(restaurantId: string, orders: Omit<Order, 'lines'>[]): Promise<Order[]> {
   if (orders.length === 0) return [];
   const placeholders = orders.map((_, index) => `$${index + 1}`).join(', ');
-  const lines = await query<OrderLine & { order_id: string }>(
+  const lines = await queryFor<OrderLine & { order_id: string }>(restaurantId, 
     `select order_id, name, price, quantity from order_items where order_id in (${placeholders}) order by name`,
     orders.map((order) => order.id),
   );
@@ -125,21 +126,21 @@ async function withLines(orders: Omit<Order, 'lines'>[]): Promise<Order[]> {
 }
 
 export async function getOrder(restaurantId: string, id: string): Promise<Order | null> {
-  const orders = await query<Omit<Order, 'lines'>>(`select ${ORDER_COLUMNS} from orders where restaurant_id = $1 and id = $2`, [restaurantId, id]);
-  return (await withLines(orders))[0] ?? null;
+  const orders = await queryFor<Omit<Order, 'lines'>>(restaurantId, `select ${ORDER_COLUMNS} from orders where restaurant_id = $1 and id = $2`, [restaurantId, id]);
+  return (await withLines(restaurantId, orders))[0] ?? null;
 }
 
 /** Every order of a day, oldest first, each with its lines. */
 export async function getOrdersOn(restaurantId: string, day: string): Promise<Order[]> {
-  const orders = await query<Omit<Order, 'lines'>>(`select ${ORDER_COLUMNS} from orders where restaurant_id = $1 and day = $2 order by created_at`, [
+  const orders = await queryFor<Omit<Order, 'lines'>>(restaurantId, `select ${ORDER_COLUMNS} from orders where restaurant_id = $1 and day = $2 order by created_at`, [
     restaurantId,
     day,
   ]);
-  return withLines(orders);
+  return withLines(restaurantId, orders);
 }
 
 export async function setOrderStatus(restaurantId: string, id: string, status: OrderStatus): Promise<void> {
-  await query('update orders set status = $3 where restaurant_id = $1 and id = $2', [restaurantId, id, status]);
+  await queryFor(restaurantId, 'update orders set status = $3 where restaurant_id = $1 and id = $2', [restaurantId, id, status]);
 }
 
 export interface OrderReport {
@@ -154,7 +155,7 @@ export async function getOrderReport(restaurantId: string, fromDay: string, toDa
   const inRange = 'restaurant_id = $1 and day between $2 and $3';
 
   const [[totals], perDay, topItems] = await Promise.all([
-    query<OrderReport['totals']>(
+    queryFor<OrderReport['totals']>(restaurantId, 
       `select
          count(*) filter (where status <> 'cancelled')::int as orders,
          coalesce(sum(total) filter (where status <> 'cancelled'), 0)::int as revenue,
@@ -163,11 +164,11 @@ export async function getOrderReport(restaurantId: string, fromDay: string, toDa
        from orders where ${inRange}`,
       range,
     ),
-    query<OrderReport['perDay'][number]>(
+    queryFor<OrderReport['perDay'][number]>(restaurantId, 
       `select day, count(*) filter (where status <> 'cancelled')::int as orders from orders where ${inRange} group by day order by day`,
       range,
     ),
-    query<OrderReport['topItems'][number]>(
+    queryFor<OrderReport['topItems'][number]>(restaurantId, 
       `select order_items.name, sum(order_items.quantity)::int as quantity, sum(order_items.quantity * order_items.price)::int as revenue
        from order_items join orders on orders.id = order_items.order_id
        where orders.restaurant_id = $1 and orders.day between $2 and $3 and orders.status <> 'cancelled'

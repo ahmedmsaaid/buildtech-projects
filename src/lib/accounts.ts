@@ -4,6 +4,7 @@
  * product adds lives in that product's own module (clinics.ts for clinics).
  */
 import { query } from './db';
+import { rememberDatabase } from './tenants';
 
 export interface Account {
   id: string;
@@ -34,14 +35,25 @@ export const ACCOUNT_COLUMNS = `accounts.id, accounts.product, accounts.slug, ac
   accounts.period_months, accounts.paid_until, accounts.contact_name, accounts.contact_phone, accounts.owner_note,
   accounts.accent, accounts.theme, accounts.timezone, accounts.demo_expires_at`;
 
+/** An account as stored, with where its records live. That part is noted for tenants.ts and goes no further. */
+type StoredAccount = Account & { database_url: string | null; database_schema: number };
+const STORED_COLUMNS = `${ACCOUNT_COLUMNS}, accounts.database_url, accounts.database_schema`;
+
+function known(stored: StoredAccount | undefined): Account | null {
+  if (!stored) return null;
+  const { database_url, database_schema, ...account } = stored;
+  rememberDatabase(account.id, database_url, database_schema);
+  return account;
+}
+
 export async function getAccountBySlug(slug: string): Promise<Account | null> {
-  const [account] = await query<Account>(`select ${ACCOUNT_COLUMNS} from accounts where slug = $1`, [slug]);
-  return account ?? null;
+  const [account] = await query<StoredAccount>(`select ${STORED_COLUMNS} from accounts where slug = $1`, [slug]);
+  return known(account);
 }
 
 export async function getAccountById(id: string): Promise<Account | null> {
-  const [account] = await query<Account>(`select ${ACCOUNT_COLUMNS} from accounts where id = $1`, [id]);
-  return account ?? null;
+  const [account] = await query<StoredAccount>(`select ${STORED_COLUMNS} from accounts where id = $1`, [id]);
+  return known(account);
 }
 
 export interface HostAccount {

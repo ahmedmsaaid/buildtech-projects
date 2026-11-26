@@ -1,6 +1,7 @@
 /** Booking rules: free slots, taking one, the waiting queue, payments, and the staff's views. */
 import { getClosedDays, getServices, getWorkingWeek, isClosedDay, type Clinic } from './clinics';
-import { isUniqueViolation, newId, query } from './db';
+import { isUniqueViolation, newId } from './db';
+import { queryFor } from './tenants';
 import { addDays, daysBetween, isDay, nowIn, weekdayOf } from './time';
 
 export const appointmentStatuses = ['booked', 'arrived', 'done', 'no_show', 'cancelled'] as const;
@@ -52,7 +53,7 @@ export async function getSlots(clinic: Clinic, day: string, options: { forStaff?
   const hours = (await getWorkingWeek(clinic.id))[weekdayOf(day)];
   if (!hours.is_open || (await isClosedDay(clinic.id, day))) return [];
 
-  const taken = await query<{ start_minute: number }>(
+  const taken = await queryFor<{ start_minute: number }>(clinic.id, 
     "select start_minute from appointments where clinic_id = $1 and day = $2 and status <> 'cancelled'",
     [clinic.id, day],
   );
@@ -104,7 +105,7 @@ export async function bookAppointment(clinic: Clinic, request: BookingRequest): 
 
   const id = newId();
   try {
-    await query(
+    await queryFor(clinic.id, 
       `insert into appointments (id, clinic_id, service_id, service_name, price, day, start_minute, patient_name, patient_phone, note, source)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [id, clinic.id, service.id, service.name, service.price, request.day, request.minute, request.patientName, request.patientPhone, request.note ?? '', request.source],
@@ -119,14 +120,14 @@ export async function bookAppointment(clinic: Clinic, request: BookingRequest): 
 const APPOINTMENT_COLUMNS = 'id, service_name, price, paid, day, start_minute, patient_name, patient_phone, note, status, source, arrived_at';
 
 export function getAppointmentsOn(clinicId: string, day: string): Promise<Appointment[]> {
-  return query<Appointment>(`select ${APPOINTMENT_COLUMNS} from appointments where clinic_id = $1 and day = $2 order by start_minute, created_at`, [
+  return queryFor<Appointment>(clinicId, `select ${APPOINTMENT_COLUMNS} from appointments where clinic_id = $1 and day = $2 order by start_minute, created_at`, [
     clinicId,
     day,
   ]);
 }
 
 export async function getAppointment(clinicId: string, id: string): Promise<Appointment | null> {
-  const [appointment] = await query<Appointment>(`select ${APPOINTMENT_COLUMNS} from appointments where clinic_id = $1 and id = $2`, [clinicId, id]);
+  const [appointment] = await queryFor<Appointment>(clinicId, `select ${APPOINTMENT_COLUMNS} from appointments where clinic_id = $1 and id = $2`, [clinicId, id]);
   return appointment ?? null;
 }
 
@@ -140,7 +141,7 @@ export type StatusChange = 'done' | 'slot_taken';
  */
 export async function setAppointmentStatus(clinicId: string, id: string, status: AppointmentStatus): Promise<StatusChange> {
   try {
-    await query(
+    await queryFor(clinicId, 
       `update appointments set
          status = $3::text,
          arrived_at = case
@@ -165,12 +166,12 @@ export async function setAppointmentStatus(clinicId: string, id: string, status:
 
 /** Records what the patient actually paid for a finished visit. */
 export async function setPaidAmount(clinicId: string, id: string, amount: number): Promise<void> {
-  await query("update appointments set paid = $3 where clinic_id = $1 and id = $2 and status = 'done'", [clinicId, id, amount]);
+  await queryFor(clinicId, "update appointments set paid = $3 where clinic_id = $1 and id = $2 and status = 'done'", [clinicId, id, amount]);
 }
 
 /** Patients waiting right now on a day, first to arrive first. */
 export function getQueue(clinicId: string, day: string): Promise<Appointment[]> {
-  return query<Appointment>(
+  return queryFor<Appointment>(clinicId, 
     `select ${APPOINTMENT_COLUMNS} from appointments
      where clinic_id = $1 and day = $2 and status = 'arrived'
      order by arrived_at, start_minute`,
@@ -198,7 +199,7 @@ export function canPatientCancel(clinic: Clinic, appointment: Appointment): bool
 
 /** How many live bookings each day has, for the week strip. Days with none are absent. */
 export async function getDayCounts(clinicId: string, fromDay: string, toDay: string): Promise<Map<string, number>> {
-  const rows = await query<{ day: string; total: number }>(
+  const rows = await queryFor<{ day: string; total: number }>(clinicId, 
     `select day, count(*)::int as total from appointments
      where clinic_id = $1 and day between $2 and $3 and status <> 'cancelled'
      group by day`,
@@ -217,7 +218,7 @@ export interface Patient {
 
 /** Everyone who has booked, one row per phone number, most recent first. */
 export function getPatients(clinicId: string, search: string): Promise<Patient[]> {
-  return query<Patient>(
+  return queryFor<Patient>(clinicId, 
     `select
        (array_agg(patient_name order by day desc, start_minute desc))[1] as patient_name,
        patient_phone,
@@ -235,19 +236,19 @@ export function getPatients(clinicId: string, search: string): Promise<Patient[]
 
 /** Every appointment a patient has had at the clinic, newest first. */
 export function getPatientHistory(clinicId: string, phone: string): Promise<Appointment[]> {
-  return query<Appointment>(
+  return queryFor<Appointment>(clinicId, 
     `select ${APPOINTMENT_COLUMNS} from appointments where clinic_id = $1 and patient_phone = $2 order by day desc, start_minute desc`,
     [clinicId, phone],
   );
 }
 
 export async function getPatientNote(clinicId: string, phone: string): Promise<string> {
-  const [row] = await query<{ note: string }>('select note from patient_notes where clinic_id = $1 and patient_phone = $2', [clinicId, phone]);
+  const [row] = await queryFor<{ note: string }>(clinicId, 'select note from patient_notes where clinic_id = $1 and patient_phone = $2', [clinicId, phone]);
   return row?.note ?? '';
 }
 
 export async function savePatientNote(clinicId: string, phone: string, note: string): Promise<void> {
-  await query(
+  await queryFor(clinicId, 
     `insert into patient_notes (clinic_id, patient_phone, note) values ($1, $2, $3)
      on conflict (clinic_id, patient_phone) do update set note = excluded.note`,
     [clinicId, phone, note],
@@ -266,7 +267,7 @@ export async function getReport(clinicId: string, fromDay: string, toDay: string
   const inRange = 'clinic_id = $1 and day between $2 and $3';
 
   const [[totals], perDay, services] = await Promise.all([
-    query<Report['totals']>(
+    queryFor<Report['totals']>(clinicId, 
       `select
          count(*) filter (where status <> 'cancelled')::int as bookings,
          count(*) filter (where status = 'done')::int as done,
@@ -278,12 +279,12 @@ export async function getReport(clinicId: string, fromDay: string, toDay: string
        from appointments where ${inRange}`,
       range,
     ),
-    query<Report['perDay'][number]>(
+    queryFor<Report['perDay'][number]>(clinicId, 
       `select day, count(*) filter (where status <> 'cancelled')::int as bookings, coalesce(sum(paid), 0)::int as revenue
        from appointments where ${inRange} group by day order by day`,
       range,
     ),
-    query<Report['services'][number]>(
+    queryFor<Report['services'][number]>(clinicId, 
       `select service_name, count(*)::int as visits, coalesce(sum(paid), 0)::int as revenue
        from appointments where ${inRange} and status <> 'cancelled'
        group by service_name order by visits desc`,

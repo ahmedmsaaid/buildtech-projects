@@ -6,7 +6,8 @@ import vercel from '@astrojs/vercel';
 // always show live data.
 export default defineConfig({
   output: 'server',
-  adapter: vercel(),
+  // Moving a customer's records into a database of their own takes longer than a page.
+  adapter: vercel({ maxDuration: 60 }),
   // The local database engine ships WebAssembly that must not be bundled.
   vite: { ssr: { external: ['@electric-sql/pglite', '@electric-sql/pglite-socket'] } },
 });
