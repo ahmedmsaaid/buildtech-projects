@@ -8,11 +8,13 @@ import Icon from '../../../../../components/Icon.astro';
 import Base from '../../../../../layouts/Base.astro';
 import { getOrder, orderStatusLabels, type OrderStatus } from '../../../../../lib/orders';
 import { getRestaurantBySlug } from '../../../../../lib/restaurants';
+import { wordsForOrdering } from '../../../../../lib/words';
 import { themeOf } from '../../../../../lib/theme';
 
 const restaurant = await getRestaurantBySlug(Astro.params.slug ?? '');
 const order = restaurant && (await getOrder(restaurant.id, Astro.params.id ?? ''));
 if (!restaurant || !order) return new Response(null, { status: 404 });
+const w = wordsForOrdering(restaurant.product);
 
 const steps: OrderStatus[] = ['new', 'preparing', 'ready', 'done'];
 const reached = steps.indexOf(order.status);
@@ -20,7 +22,7 @@ const isCancelled = order.status === 'cancelled';
 const isLive = order.status === 'new' || order.status === 'preparing' || order.status === 'ready';
 
 const headline: Record<OrderStatus, string> = {
-  new: 'طلبك وصل المطبخ',
+  new: `طلبك وصل ${w.kitchen}`,
   preparing: 'طلبك بيتحضّر',
   ready: order.type === 'dine_in' ? 'طلبك جاهز وجايلك' : 'طلبك جاهز للاستلام',
   done: 'بالهنا والشفا',
@@ -52,7 +54,7 @@ const backToMenu = `/${restaurant.slug}${order.table_number ? `?t=${order.table_
           )
         }
         {isLive && <p class="muted small">الصفحة بتتحدّث لوحدها. الطلب بياخد حوالي {restaurant.prep_minutes} دقيقة.</p>}
-        {isCancelled && <p class="muted">لو فيه مشكلة كلّم المطعم{restaurant.phone && <> على <a class="ltr" href={`tel:${restaurant.phone}`}>{restaurant.phone}</a></>}.</p>}
+        {isCancelled && <p class="muted">لو فيه مشكلة كلّم {w.place}{restaurant.phone && <> على <a class="ltr" href={`tel:${restaurant.phone}`}>{restaurant.phone}</a></>}.</p>}
 
         <ul class="queue">
           {
@@ -68,7 +70,7 @@ const backToMenu = `/${restaurant.slug}${order.table_number ? `?t=${order.table_
 
         <dl class="facts">
           <dt>الإجمالي</dt>
-          <dd>{order.total} ج · الدفع في المطعم</dd>
+          <dd>{order.total} ج · الدفع في {w.place}</dd>
           {order.note && (
             <>
               <dt>ملاحظتك</dt>

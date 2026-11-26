@@ -3,9 +3,11 @@
 import Icon from '../../components/Icon.astro';
 import Admin from '../../layouts/Admin.astro';
 import { getReport } from '../../lib/appointments';
+import { wordsForBooking } from '../../lib/words';
 import { addDays, formatDay, formatShortDay, nowIn } from '../../lib/time';
 
 const { clinic } = Astro.locals;
+const w = wordsForBooking(clinic.product);
 const today = nowIn(clinic.timezone).day;
 
 const ranges = [7, 30, 90];
@@ -42,7 +44,7 @@ const topService = Math.max(1, ...report.services.map((service) => service.visit
 
   <div class="stats">
     <p class="stat"><span class="stat__icon"><Icon name="calendar" /></span><span><strong>{totals.bookings}</strong><span>حجز</span></span></p>
-    <p class="stat"><span class="stat__icon"><Icon name="users" /></span><span><strong>{totals.patients}</strong><span>مريض</span></span></p>
+    <p class="stat"><span class="stat__icon"><Icon name="users" /></span><span><strong>{totals.patients}</strong><span>{w.client1}</span></span></p>
     <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{totals.revenue}</strong><span>الإيراد (ج)</span></span></p>
     <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{share(totals.done, settled)}%</strong><span>نسبة الحضور</span></span></p>
     <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{totals.no_shows}</strong><span>ما جاش</span></span></p>

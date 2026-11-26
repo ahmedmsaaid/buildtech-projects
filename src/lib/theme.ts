@@ -38,7 +38,7 @@ export const DEFAULT_ACCENT = '#0f766e';
 /** What staff read on the appearance page. */
 export const themeLabels: { [Key in ThemeKey]: { title: string; choices: Record<ThemeOptions[Key], string> } } = {
   mode: { title: 'الوضع', choices: { light: 'فاتح', dark: 'ليلي' } },
-  background: { title: 'الخلفية', choices: { neutral: 'رمادي هادي', tinted: 'من لون العيادة', warm: 'دافي', white: 'أبيض' } },
+  background: { title: 'الخلفية', choices: { neutral: 'رمادي هادي', tinted: 'من لونك الأساسي', warm: 'دافي', white: 'أبيض' } },
   corners: { title: 'الزوايا', choices: { sharp: 'حادة', soft: 'ناعمة', round: 'دائرية' } },
   cards: { title: 'الكروت', choices: { shadow: 'بظل', outline: 'بإطار', flat: 'مسطّحة' } },
   hero: { title: 'رأس الصفحة', choices: { gradient: 'تدرّج', solid: 'لون واحد', soft: 'فاتح' } },

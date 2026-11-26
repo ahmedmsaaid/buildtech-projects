@@ -10,11 +10,13 @@ import Base from '../../../../layouts/Base.astro';
 import { placeOrder } from '../../../../lib/orders';
 import { bookingLimiter } from '../../../../lib/rate-limit';
 import { getMenu, getRestaurantBySlug } from '../../../../lib/restaurants';
+import { wordsForOrdering } from '../../../../lib/words';
 import { themeOf } from '../../../../lib/theme';
 import { egyptianMobile, text } from '../../../../lib/validate';
 
 const restaurant = await getRestaurantBySlug(Astro.params.slug ?? '');
 if (!restaurant) return new Response(null, { status: 404 });
+const w = wordsForOrdering(restaurant.product);
 
 const menu = await getMenu(restaurant.id);
 const isOpen = restaurant.status === 'active' && restaurant.accepts_orders;
@@ -47,13 +49,13 @@ if (Astro.request.method === 'POST' && isOpen) {
     if (result.ok) return Astro.redirect(`/${restaurant.slug}/order/${result.id}`);
 
     const messages: Record<typeof result.reason, string> = {
-      closed: 'المطعم مش بيستقبل طلبات دلوقتي.',
+      closed: `${w.place} مش بيستقبل طلبات دلوقتي.`,
       empty: 'اختار صنف واحد على الأقل.',
       unavailable: 'فيه صنف خلص من شوية. راجع طلبك.',
       bad_table: 'رقم الترابيزة مش صحيح. امسح الكود اللي على الترابيزة تاني.',
       pickup_off: 'الطلب متاح من الترابيزة بس. امسح الكود اللي على ترابيزتك.',
       contact_needed: 'اكتب اسمك ورقم موبايلك عشان نبلّغك لما الطلب يجهز.',
-      too_big: 'الطلب كبير قوي. قسّمه على طلبين أو كلّم المطعم.',
+      too_big: `الطلب كبير قوي. قسّمه على طلبين أو كلّم ${w.place}.`,
     };
     problems.push(messages[result.reason]);
   }
@@ -97,7 +99,7 @@ const initial = restaurant.name.trim().charAt(0);
         </div>
       )
     }
-    {!isOpen && <p class="notice notice--error" role="status"><Icon name="ban" />المطعم مش بيستقبل طلبات أونلاين دلوقتي. تقدر تتفرج على المنيو.</p>}
+    {!isOpen && <p class="notice notice--error" role="status"><Icon name="ban" />{w.place} مش بيستقبل طلبات أونلاين دلوقتي. تقدر تتفرج على المنيو.</p>}
     {isOpen && !canOrder && <p class="notice" role="status" data-stay><Icon name="building" />عشان تطلب، امسح الكود اللي على ترابيزتك.</p>}
 
     {
@@ -154,7 +156,7 @@ const initial = restaurant.name.trim().charAt(0);
                     </div>
                   </div>
                   <div class="field">
-                    <label for="note">ملاحظة للمطبخ (اختياري)</label>
+                    <label for="note">ملاحظة لل{w.kitchen1} (اختياري)</label>
                     <textarea id="note" name="note" rows="2" maxlength="300" placeholder="من غير بصل، حار زيادة...">{typed.note}</textarea>
                   </div>
 
@@ -163,7 +165,7 @@ const initial = restaurant.name.trim().charAt(0);
                     <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
                   </div>
 
-                  <p class="hint">الطلب بيجهز في حوالي {restaurant.prep_minutes} دقيقة. الدفع في المطعم.</p>
+                  <p class="hint">الطلب بيجهز في حوالي {restaurant.prep_minutes} دقيقة. الدفع في {w.place}.</p>
                 </section>
               )
             }

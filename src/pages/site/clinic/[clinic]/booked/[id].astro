@@ -10,12 +10,14 @@ import Base from '../../../../../layouts/Base.astro';
 import { themeOf } from '../../../../../lib/theme';
 import { canPatientCancel, getAppointment, getQueuePosition, setAppointmentStatus } from '../../../../../lib/appointments';
 import { getClinicBySlug } from '../../../../../lib/clinics';
+import { wordsForBooking } from '../../../../../lib/words';
 import { formatDay, formatMinute, nowIn } from '../../../../../lib/time';
 import { egyptianMobile, text, whatsappNumber } from '../../../../../lib/validate';
 
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
 let appointment = clinic && (await getAppointment(clinic.id, Astro.params.id ?? ''));
 if (!clinic || !appointment) return new Response(null, { status: 404 });
+const w = wordsForBooking(clinic.product);
 
 const here = `/${clinic.slug}/booked/${appointment.id}`;
 let cancelRefused = false;
@@ -43,7 +45,7 @@ const changeMessage = `أهلاً، أنا ${appointment.patient_name} وحاج�
 const headline: Record<typeof appointment.status, string> = {
   booked: 'حجزك اتأكد',
   arrived: 'إنت في الانتظار',
-  done: 'تم الكشف. بالشفا',
+  done: w.doneForClient,
   no_show: 'الميعاد فات',
   cancelled: 'الحجز اتلغى',
 };
@@ -70,12 +72,12 @@ const headline: Record<typeof appointment.status, string> = {
               <div>
                 {queue.ahead === null ? (
                   <>
-                    <strong>{queue.waiting === 0 ? 'مفيش حد منتظر دلوقتي' : 'مريض منتظر في العيادة دلوقتي'}</strong>
+                    <strong>{queue.waiting === 0 ? 'مفيش حد منتظر دلوقتي' : `${w.client1} منتظر في ${w.place} دلوقتي`}</strong>
                     <p class="muted small">لما توصل بلّغ الاستقبال عشان تدخل الطابور.</p>
                   </>
                 ) : (
                   <>
-                    <strong>{queue.ahead === 0 ? 'دورك دلوقتي' : 'مريض قدامك'}</strong>
+                    <strong>{queue.ahead === 0 ? 'دورك دلوقتي' : `${w.client1} قدامك`}</strong>
                     <p class="muted small">الصفحة بتتحدّث لوحدها كل شوية.</p>
                   </>
                 )}
@@ -91,7 +93,7 @@ const headline: Record<typeof appointment.status, string> = {
           <dd>{appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}</dd>
           {clinic.doctor_name && (
             <>
-              <dt>الدكتور</dt>
+              <dt>{w.pro}</dt>
               <dd>{clinic.doctor_name}</dd>
             </>
           )}
@@ -106,7 +108,7 @@ const headline: Record<typeof appointment.status, string> = {
         </dl>
 
         {appointment.status === 'booked' && <p class="muted small">تعالى قبل ميعادك بعشر دقايق. احفظ لينك الصفحة دي: منها تتابع دورك وتلغي لو احتجت.</p>}
-        {cancelRefused && <p class="notice notice--error" role="alert">الميعاد قرّب، فالإلغاء من هنا مش متاح. كلّم العيادة.</p>}
+        {cancelRefused && <p class="notice notice--error" role="alert">الميعاد قرّب، فالإلغاء من هنا مش متاح. كلّم {w.place}.</p>}
 
         {
           !isCancelled && appointment.status === 'booked' && (
@@ -127,7 +129,7 @@ const headline: Record<typeof appointment.status, string> = {
       canPatientCancel(clinic, appointment) && (
         <details class="card">
           <summary>عايز ألغي الحجز</summary>
-          <p class="muted">لو لغيت، الميعاد هيبقى متاح لمريض تاني.</p>
+          <p class="muted">لو لغيت، الميعاد هيبقى متاح ل{w.client1} تاني.</p>
           <form method="post">
             <input type="hidden" name="_action" value="cancel" />
             <button class="btn btn--danger" type="submit"><Icon name="x" />تأكيد الإلغاء</button>

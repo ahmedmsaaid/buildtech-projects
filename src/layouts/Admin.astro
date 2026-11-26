@@ -1,15 +1,19 @@
 ---
-/** The clinic dashboard: the shared shell with the clinic's own sections. */
+/** The booking dashboard (clinics, barbershops): the shared shell with its own sections. */
 import Dashboard, { type DashboardLink } from './Dashboard.astro';
+import { wordsForBooking } from '../lib/words';
 
 interface Props {
   title: string;
   subtitle?: string;
 }
 
+// The second section is named after whoever this product's customers are: patients, clients.
+const w = wordsForBooking(Astro.locals.account?.product);
+
 const links: DashboardLink[] = [
   { href: '/admin', label: 'المواعيد', icon: 'calendar' },
-  { href: '/admin/patients', label: 'المرضى', icon: 'users' },
+  { href: '/admin/patients', label: w.clients, icon: 'users' },
   { href: '/admin/reports', label: 'التقارير', icon: 'chart' },
   { href: '/admin/appearance', label: 'المظهر', icon: 'palette' },
   { href: '/admin/settings', label: 'الإعدادات', icon: 'settings' },

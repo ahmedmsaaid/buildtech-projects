@@ -8,12 +8,14 @@ import Base from '../../../../layouts/Base.astro';
 import { themeOf } from '../../../../lib/theme';
 import { bookAppointment, getBookableDays, getSlots } from '../../../../lib/appointments';
 import { getClinicBySlug, getServices, getWorkingWeek } from '../../../../lib/clinics';
+import { wordsForBooking } from '../../../../lib/words';
 import { bookingLimiter } from '../../../../lib/rate-limit';
 import { formatDay, formatMinute, formatShortDay, nowIn, periodNames, periodOf, weekdayNames, weekdayOf } from '../../../../lib/time';
 import { egyptianMobile, text } from '../../../../lib/validate';
 
 const clinic = await getClinicBySlug(Astro.params.clinic ?? '');
 if (!clinic) return new Response(null, { status: 404 });
+const w = wordsForBooking(clinic.product);
 
 const isSuspended = clinic.status === 'suspended';
 const [bookableDays, services, week] = await Promise.all([getBookableDays(clinic), getServices(clinic.id), getWorkingWeek(clinic.id)]);
@@ -142,7 +144,7 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
 
     {
       days.length === 0 || services.length === 0 ? (
-        <p class="card">الحجز الأونلاين مش متاح دلوقتي. كلّم العيادة على التليفون.</p>
+        <p class="card">الحجز الأونلاين مش متاح دلوقتي. كلّم {w.place} على التليفون.</p>
       ) : (
         <>
           <ol class="steps" aria-label="خطوات الحجز">
@@ -226,7 +228,7 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
                 </div>
               </div>
               <div class="field">
-                <label for="note">ملاحظة للعيادة (اختياري)</label>
+                <label for="note">ملاحظة {w.toPlace} (اختياري)</label>
                 <textarea id="note" name="note" rows="2" maxlength="300">{typed.note}</textarea>
               </div>
 
@@ -240,7 +242,7 @@ const initial = (clinic.doctor_name.replace(/^د\.?\s*/, '') || clinic.name).tri
                 أكّد الحجز
               </button>
               <p class="hint">
-                العيادة هتفكّرك بالميعاد على رقمك.
+                {w.placeReminds} بالميعاد على رقمك.
                 {clinic.cancel_hours > 0 ? ` تقدر تلغي لحد ${clinic.cancel_hours} ساعة قبل الميعاد.` : ' تقدر تلغي في أي وقت قبل الميعاد.'}
               </p>
             </section>

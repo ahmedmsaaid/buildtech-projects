@@ -3,9 +3,11 @@
 import Icon from '../../components/Icon.astro';
 import Restaurant from '../../layouts/Restaurant.astro';
 import { getRestaurantById, updateRestaurantDetails } from '../../lib/restaurants';
+import { wordsForOrdering } from '../../lib/words';
 import { text, wholeNumber } from '../../lib/validate';
 
 let { restaurant } = Astro.locals;
+const w = wordsForOrdering(restaurant.product);
 const problems: string[] = [];
 let saved = Astro.url.searchParams.has('saved');
 
@@ -16,7 +18,7 @@ if (Astro.request.method === 'POST') {
   const prepMinutes = wholeNumber(form, 'prep_minutes', 1, 240);
   const mapUrl = text(form, 'map_url', 300);
 
-  if (!name) problems.push('اسم المطعم مطلوب.');
+  if (!name) problems.push(`اسم ${w.place} مطلوب.`);
   if (tablesCount === null) problems.push('عدد الترابيزات لازم يكون من 0 لـ 200.');
   if (prepMinutes === null) problems.push('وقت التحضير لازم يكون من 1 لـ 240 دقيقة.');
   if (mapUrl && !/^https:\/\//.test(mapUrl)) problems.push('رابط الخريطة لازم يبدأ بـ https://');
@@ -43,7 +45,7 @@ if (Astro.request.method === 'POST') {
 }
 ---
 
-<Restaurant title="الإعدادات" subtitle="بيانات المطعم وطريقة الطلب">
+<Restaurant title="الإعدادات" subtitle={`بيانات ${w.place} وطريقة الطلب`}>
   <Fragment slot="actions">
     <a class="btn btn--sm btn--soft" href={`/${restaurant.slug}`} target="_blank" rel="noopener"><Icon name="external" />المنيو</a>
     <form method="post" action="/logout">
@@ -64,16 +66,16 @@ if (Astro.request.method === 'POST') {
   <form class="stack" method="post">
     <section class="card">
       <div class="card__head">
-        <h2 class="card__title"><Icon name="building" />بيانات المطعم</h2>
+        <h2 class="card__title"><Icon name="building" />بيانات {w.place}</h2>
         <span class="muted small">لينك المنيو: <span class="ltr">/{restaurant.slug}</span></span>
       </div>
       <div class="grid-2">
         <div class="field">
-          <label for="name">اسم المطعم</label>
+          <label for="name">اسم {w.place}</label>
           <input id="name" name="name" type="text" value={restaurant.name} required maxlength="80" />
         </div>
         <div class="field">
-          <label for="cuisine">نوع الأكل</label>
+          <label for="cuisine">{w.cuisineLabel}</label>
           <input id="cuisine" name="cuisine" type="text" value={restaurant.cuisine} maxlength="80" placeholder="مشويات، كشري، بيتزا..." />
         </div>
         <div class="field">
@@ -85,16 +87,16 @@ if (Astro.request.method === 'POST') {
           <input id="hours_note" name="hours_note" type="text" value={restaurant.hours_note} maxlength="80" placeholder="يومياً من 12 الضهر لـ 12 بالليل" />
         </div>
         <div class="field">
-          <label for="phone">تليفون المطعم</label>
+          <label for="phone">تليفون {w.place}</label>
           <input id="phone" class="ltr" name="phone" type="tel" value={restaurant.phone} maxlength="20" />
         </div>
         <div class="field">
-          <label for="whatsapp">واتساب المطعم</label>
+          <label for="whatsapp">واتساب {w.place}</label>
           <input id="whatsapp" class="ltr" name="whatsapp" type="tel" value={restaurant.whatsapp} maxlength="20" />
         </div>
       </div>
       <div class="field">
-        <label for="about">نبذة عن المطعم</label>
+        <label for="about">نبذة عن {w.place}</label>
         <textarea id="about" name="about" rows="3" maxlength="500">{restaurant.about}</textarea>
         <p class="hint">سطرين بيظهروا للزبون فوق المنيو. سيبها فاضية لو مش عايز.</p>
       </div>
@@ -110,7 +112,7 @@ if (Astro.request.method === 'POST') {
         <input type="checkbox" name="accepts_orders" checked={restaurant.accepts_orders} />
         <span>
           <strong>بنستقبل طلبات أونلاين</strong>
-          <span class="block hint">شيل العلامة لو المطبخ مضغوط أو قافل. المنيو بيفضل ظاهر من غير طلب.</span>
+          <span class="block hint">شيل العلامة لو {w.kitchen} مضغوط أو قافل. المنيو بيفضل ظاهر من غير طلب.</span>
         </span>
       </label>
       <label class="row">

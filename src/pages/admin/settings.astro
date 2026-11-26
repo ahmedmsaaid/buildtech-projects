@@ -1,5 +1,6 @@
 ---
 /** Clinic settings: public details, weekly hours, days off, and the kinds of visit patients can book. */
+import { wordsForBooking } from '../../lib/words';
 import Icon from '../../components/Icon.astro';
 import Admin from '../../layouts/Admin.astro';
 import {
@@ -18,6 +19,7 @@ import { formatDay, fromTimeInput, isDay, nowIn, toTimeInput, weekdayNames } fro
 import { text, wholeNumber } from '../../lib/validate';
 
 let { clinic } = Astro.locals;
+const w = wordsForBooking(clinic.product);
 const today = nowIn(clinic.timezone).day;
 const problems: string[] = [];
 let saved = Astro.url.searchParams.has('saved');
@@ -33,7 +35,7 @@ if (Astro.request.method === 'POST') {
     const name = text(form, 'name', 80);
     const mapUrl = text(form, 'map_url', 300);
 
-    if (!name) problems.push('اسم العيادة مطلوب.');
+    if (!name) problems.push(`اسم ${w.place} مطلوب.`);
     if (slotMinutes === null) problems.push('مدة الميعاد لازم تكون من 5 لـ 240 دقيقة.');
     if (bookingDays === null) problems.push('أيام الحجز المتاحة لازم تكون من 1 لـ 90.');
     if (cancelHours === null) problems.push('مهلة الإلغاء لازم تكون من 0 لـ 72 ساعة.');
@@ -102,7 +104,7 @@ const [week, services, closedDays] = await Promise.all([
 const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
 ---
 
-<Admin title="الإعدادات" subtitle="بيانات العيادة ومواعيدها وأسعارها">
+<Admin title="الإعدادات" subtitle={w.settingsSubtitle}>
   <Fragment slot="actions">
     <a class="btn btn--sm btn--soft" href={`/${clinic.slug}`} target="_blank" rel="noopener"><Icon name="external" />صفحة الحجز</a>
     <form method="post" action="/logout">
@@ -123,21 +125,21 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
   <form class="card" method="post">
     <input type="hidden" name="_action" value="details" />
     <div class="card__head">
-      <h2 class="card__title"><Icon name="pulse" />بيانات العيادة</h2>
+      <h2 class="card__title"><Icon name="pulse" />بيانات {w.place}</h2>
       <span class="muted small">لينك الحجز: <span class="ltr">/{clinic.slug}</span></span>
     </div>
 
     <div class="grid-2">
       <div class="field">
-        <label for="name">اسم العيادة</label>
+        <label for="name">اسم {w.place}</label>
         <input id="name" name="name" type="text" value={clinic.name} required maxlength="80" />
       </div>
       <div class="field">
-        <label for="specialty">التخصص</label>
+        <label for="specialty">{w.specialtyLabel}</label>
         <input id="specialty" name="specialty" type="text" value={clinic.specialty} maxlength="80" />
       </div>
       <div class="field">
-        <label for="doctor_name">اسم الدكتور</label>
+        <label for="doctor_name">اسم {w.pro}</label>
         <input id="doctor_name" name="doctor_name" type="text" value={clinic.doctor_name} maxlength="80" />
       </div>
       <div class="field">
@@ -145,20 +147,20 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
         <input id="address" name="address" type="text" value={clinic.address} maxlength="200" />
       </div>
       <div class="field">
-        <label for="phone">تليفون العيادة</label>
+        <label for="phone">تليفون {w.place}</label>
         <input id="phone" class="ltr" name="phone" type="tel" value={clinic.phone} maxlength="20" />
       </div>
       <div class="field">
-        <label for="whatsapp">واتساب العيادة</label>
+        <label for="whatsapp">واتساب {w.place}</label>
         <input id="whatsapp" class="ltr" name="whatsapp" type="tel" value={clinic.whatsapp} maxlength="20" />
-        <p class="hint">المريض بيكلمك عليه لو عايز يغيّر ميعاده.</p>
+        <p class="hint">{w.client} بيكلمك عليه لو عايز يغيّر ميعاده.</p>
       </div>
     </div>
 
     <div class="field">
-      <label for="about">نبذة عن العيادة</label>
+      <label for="about">نبذة عن {w.place}</label>
       <textarea id="about" name="about" rows="3" maxlength="500">{clinic.about}</textarea>
-      <p class="hint">سطرين بيظهروا للمريض فوق صفحة الحجز. سيبها فاضية لو مش عايز.</p>
+      <p class="hint">سطرين بيظهروا لل{w.client1} فوق صفحة الحجز. سيبها فاضية لو مش عايز.</p>
     </div>
 
     <div class="field">
@@ -176,7 +178,7 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
         <input id="booking_days" name="booking_days" type="number" value={clinic.booking_days} min="1" max="90" required />
       </div>
       <div class="field">
-        <label for="cancel_hours">المريض يلغي لحد كام ساعة قبل الميعاد</label>
+        <label for="cancel_hours">{w.client} يلغي لحد كام ساعة قبل الميعاد</label>
         <input id="cancel_hours" name="cancel_hours" type="number" value={clinic.cancel_hours} min="0" max="72" required />
       </div>
     </div>
@@ -201,14 +203,14 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
           ))
         }
       </div>
-      <p class="hint">اليوم اللي مش معلّم عليه إجازة ومش بيظهر للمريض.</p>
+      <p class="hint">اليوم اللي مش معلّم عليه إجازة ومش بيظهر لل{w.client1}.</p>
       <div><button class="btn btn--primary" type="submit">حفظ المواعيد</button></div>
     </form>
 
     <div class="stack">
       <section class="card" aria-labelledby="closed-title">
         <h2 id="closed-title" class="card__title"><Icon name="ban" />إجازات</h2>
-        <p class="hint">يوم بعينه العيادة مقفولة فيه: عيد، سفر، مؤتمر.</p>
+        <p class="hint">يوم بعينه {w.placeClosed} فيه: {w.closedExamples}.</p>
         {
           closedDays.length > 0 && (
             <ul class="queue">
@@ -259,7 +261,7 @@ const weekFromSaturday = [6, 0, 1, 2, 3, 4, 5].map((weekday) => week[weekday]);
           <input class="auto" name="price" type="number" placeholder="السعر" min="0" aria-label="سعر نوع الزيارة الجديد" required />
           <button class="btn btn--sm btn--primary" type="submit">إضافة</button>
         </form>
-        <p class="hint">السعر بالجنيه. اكتب 0 لو مش عايز السعر يظهر للمريض.</p>
+        <p class="hint">السعر بالجنيه. اكتب 0 لو مش عايز السعر يظهر لل{w.client1}.</p>
       </section>
     </div>
   </div>

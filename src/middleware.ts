@@ -25,7 +25,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const hostAccount = host ? await getAccountOnHost(host) : null;
   if (hostAccount) {
     context.locals.hostAccount = hostAccount;
-    if (pathname === '/' && products[hostAccount.product]) return next(`/site/${hostAccount.product}/${hostAccount.slug}/${context.url.search}`);
+    const theirs = products[hostAccount.product];
+    if (pathname === '/' && theirs) return next(`/site/${theirs.pages}/${hostAccount.slug}/${context.url.search}`);
   }
 
   const area = productList.find((product) => under(pathname, product.dashboardPath));
@@ -44,7 +45,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (account.status === 'suspended') return context.redirect('/suspended');
 
   // A clinic's staff have no business in the restaurant dashboard, and so on.
-  if (area !== own) return context.redirect(own.dashboardPath);
+  // Products on the same system share a dashboard, so it is the dashboard that is compared.
+  if (area?.dashboardPath !== own.dashboardPath) return context.redirect(own.dashboardPath);
 
   await own.load(context.locals, account.id);
   return next();

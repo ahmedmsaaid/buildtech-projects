@@ -10,11 +10,13 @@ import { randomBytes } from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { hashPassword, startSession } from './auth';
 import { newId, query, queryAll, type Statement } from './db';
-import { demoNames, fillClinic, fillRestaurant, type Run } from './demo-data';
+import { barberServices, demoNames, fillClinic, fillRestaurant, type Run } from './demo-data';
 import { products } from './products';
 import { addDays, nowIn } from './time';
 
 const TIMEZONE = 'Africa/Cairo';
+/** The color each demo wears, so the four do not look like one product. */
+const DEMO_COLORS: Record<keyof typeof demoNames, string> = { clinic: '#0f766e', barber: '#1d4ed8', restaurant: '#b45309', cafe: '#7c4a1e' };
 /** How long a demo lives. */
 export const DEMO_HOURS = 24;
 /** The most demos kept at once. Beyond this the oldest make room, so demos can never fill the database. */
@@ -61,7 +63,7 @@ export async function startDemo(product: DemoProduct, cookies: AstroCookies): Pr
   await collect(
     `insert into accounts (id, product, slug, name, paid_until, contact_name, accent, timezone, demo_expires_at)
      values ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(hours => $9))`,
-    [accountId, product, `demo-${tag}`, name, addDays(today, 30), contact, product === 'restaurant' ? '#b45309' : '#0f766e', TIMEZONE, DEMO_HOURS],
+    [accountId, product, `demo-${tag}`, name, addDays(today, 30), contact, DEMO_COLORS[product], TIMEZONE, DEMO_HOURS],
   );
 
   if (product === 'clinic') {
@@ -70,8 +72,16 @@ export async function startDemo(product: DemoProduct, cookies: AstroCookies): Pr
       specialty: 'باطنة وجهاز هضمي',
       about: 'استشاري الباطنة والجهاز الهضمي والمناظير. خبرة أكتر من 15 سنة في تشخيص وعلاج أمراض المعدة والقولون والكبد.',
     });
+  } else if (product === 'barber') {
+    await fillClinic(collect, accountId, today, {
+      doctor: contact,
+      specialty: 'حلاقة رجالي وأطفال',
+      about: 'حلاقة رجالي وأطفال بإيد أسطوات خبرة. احجز دورك من الموبايل وتعالى على ميعادك من غير انتظار.',
+      offers: barberServices,
+      note: 'بيحب القصّة قصيرة من الجناب ودرجة 2. دقنه بتتحدد بالموس.',
+    });
   } else {
-    await fillRestaurant(collect, accountId, today);
+    await fillRestaurant(collect, accountId, today, product === 'cafe' ? 'cafe' : 'restaurant');
   }
 
   const userId = newId();

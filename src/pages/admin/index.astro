@@ -18,10 +18,12 @@ import {
   type AppointmentStatus,
 } from '../../lib/appointments';
 import { getServices } from '../../lib/clinics';
+import { wordsForBooking } from '../../lib/words';
 import { addDays, formatDay, formatMinute, isDay, nowIn, weekdayNames, weekdayOf } from '../../lib/time';
 import { egyptianMobile, text, whatsappNumber, wholeNumber } from '../../lib/validate';
 
 const { clinic } = Astro.locals;
+const w = wordsForBooking(clinic.product);
 const now = nowIn(clinic.timezone);
 const today = now.day;
 const requested = Astro.url.searchParams.get('date');
@@ -57,7 +59,7 @@ if (Astro.request.method === 'POST') {
   if (action === 'add') {
     typed = { name: text(form, 'name', 80), phone: text(form, 'phone', 20) };
     const mobile = egyptianMobile(typed.phone);
-    if (typed.name.length < 3) problems.push('اكتب اسم المريض.');
+    if (typed.name.length < 3) problems.push(`اكتب اسم ${w.client}.`);
     if (!mobile) problems.push('رقم الموبايل لازم يكون 11 رقم ويبدأ بـ 01.');
 
     if (problems.length === 0 && mobile) {
@@ -118,7 +120,7 @@ const nextSteps: Record<AppointmentStatus, AppointmentStatus[]> = {
 const stepLabels: Record<AppointmentStatus, string> = {
   booked: 'رجّعه محجوز',
   arrived: 'وصل',
-  done: 'تم الكشف',
+  done: w.done,
   no_show: 'ما جاش',
   cancelled: 'إلغاء',
 };
@@ -167,7 +169,7 @@ function reminderLink(appointment: Appointment): string {
   <div class="stats">
     <p class="stat"><span class="stat__icon"><Icon name="calendar" /></span><span><strong>{live.length}</strong><span>حجز</span></span></p>
     <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{count('arrived')}</strong><span>في الانتظار</span></span></p>
-    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{count('done')}</strong><span>تم الكشف</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{count('done')}</strong><span>{w.done}</span></span></p>
     <p class="stat"><span class="stat__icon" data-tone="bad"><Icon name="ban" /></span><span><strong>{count('no_show')}</strong><span>ما جاش</span></span></p>
     <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{revenue}</strong><span>إيراد اليوم (ج)</span></span></p>
   </div>
@@ -181,7 +183,7 @@ function reminderLink(appointment: Appointment): string {
 
       {
         timeline.length === 0 ? (
-          <p class="muted">العيادة إجازة في اليوم ده.</p>
+          <p class="muted">{w.place} إجازة في اليوم ده.</p>
         ) : (
           <ol class="timeline">
             {timeline.map((row) => (
@@ -206,11 +208,11 @@ function reminderLink(appointment: Appointment): string {
                             <a href={`/admin/patients/${appointment.patient_phone}`}>{appointment.patient_name}</a>
                             <p class="muted small">
                               {appointment.service_name}{appointment.price > 0 && ` · ${appointment.price} ج`}
-                              {appointment.source === 'online' ? ' · أونلاين' : ' · من العيادة'}
+                              {appointment.source === 'online' ? ' · أونلاين' : ` · من ${w.place}`}
                             </p>
                           </div>
                         </div>
-                        <span class="badge" data-status={appointment.status}>{statusLabels[appointment.status]}</span>
+                        <span class="badge" data-status={appointment.status}>{appointment.status === 'done' ? w.done : statusLabels[appointment.status]}</span>
                       </div>
 
                       {appointment.note && <p class="small"><Icon name="note" /> {appointment.note}</p>}
@@ -282,7 +284,7 @@ function reminderLink(appointment: Appointment): string {
         </div>
         {
           queue.length === 0 ? (
-            <p class="muted small">محدش منتظر. لما مريض يوصل دوس "وصل" وهيدخل الطابور بترتيب وصوله.</p>
+            <p class="muted small">محدش منتظر. لما {w.client1} يوصل دوس "وصل" وهيدخل الطابور بترتيب وصوله.</p>
           ) : (
             <ol class="queue">
               {queue.map((appointment, index) => (
@@ -328,7 +330,7 @@ function reminderLink(appointment: Appointment): string {
                 </div>
               </div>
               <div class="field">
-                <label for="add-name">اسم المريض</label>
+                <label for="add-name">اسم {w.client}</label>
                 <input id="add-name" name="name" type="text" value={typed.name} required minlength="3" maxlength="80" />
               </div>
               <div class="field">

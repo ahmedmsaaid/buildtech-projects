@@ -2,29 +2,31 @@
 /** Everyone who has booked at the clinic, with how often they came and how often they did not. */
 import Admin from '../../../layouts/Admin.astro';
 import { getPatients } from '../../../lib/appointments';
+import { wordsForBooking } from '../../../lib/words';
 import { formatDay } from '../../../lib/time';
 
 const { clinic } = Astro.locals;
+const w = wordsForBooking(clinic.product);
 const search = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 60);
 const patients = await getPatients(clinic.id, search);
 ---
 
-<Admin title="المرضى" subtitle={`${patients.length} مريض${search ? ' في نتيجة البحث' : ''}`}>
+<Admin title={w.clients} subtitle={`${patients.length} ${w.client1}${search ? ' في نتيجة البحث' : ''}`}>
   <form class="row" method="get" role="search">
-    <input class="grow" name="q" type="search" value={search} placeholder="ابحث بالاسم أو رقم الموبايل" aria-label="بحث في المرضى" />
+    <input class="grow" name="q" type="search" value={search} placeholder="ابحث بالاسم أو رقم الموبايل" aria-label={`بحث في ${w.clients}`} />
     <button class="btn" type="submit">بحث</button>
     {search && <a class="btn btn--ghost" href="/admin/patients">الكل</a>}
   </form>
 
   {
     patients.length === 0 ? (
-      <p class="card muted">{search ? 'مفيش مريض بالاسم أو الرقم ده.' : 'لسه مفيش مرضى. أول حجز هيظهر هنا.'}</p>
+      <p class="card muted">{search ? `مفيش ${w.client1} بالاسم أو الرقم ده.` : `لسه مفيش ${w.clients1}. أول حجز هيظهر هنا.`}</p>
     ) : (
       <div class="card table-wrap">
         <table class="cards-on-phone">
           <thead>
             <tr>
-              <th>المريض</th>
+              <th>{w.client}</th>
               <th>الموبايل</th>
               <th>الحجوزات</th>
               <th>ما جاش</th>

@@ -1,7 +1,7 @@
 /**
  * Every customer's public address is /<slug>, whatever they bought. This
  * looks the slug up and hands the request to that product's own pages, which
- * live under /site/<product>/. The visitor's address does not change.
+ * live under /site/<the product's pages>/. The visitor's address does not change.
  */
 import type { APIRoute } from 'astro';
 import { getAccountBySlug } from '../../lib/accounts';
@@ -13,5 +13,5 @@ export const ALL: APIRoute = async (context) => {
   if (!account || !product) return new Response(null, { status: 404 });
 
   const rest = context.params.path ? `/${context.params.path}` : '';
-  return context.rewrite(`/site/${product.key}/${account.slug}${rest}${context.url.search}`);
+  return context.rewrite(`/site/${product.pages}/${account.slug}${rest}${context.url.search}`);
 };

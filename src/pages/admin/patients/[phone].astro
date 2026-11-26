@@ -3,10 +3,12 @@
 import Icon from '../../../components/Icon.astro';
 import Admin from '../../../layouts/Admin.astro';
 import { getPatientHistory, getPatientNote, savePatientNote, statusLabels } from '../../../lib/appointments';
+import { wordsForBooking } from '../../../lib/words';
 import { formatDay, formatMinute } from '../../../lib/time';
 import { egyptianMobile, text, whatsappNumber } from '../../../lib/validate';
 
 const { clinic } = Astro.locals;
+const w = wordsForBooking(clinic.product);
 const phone = egyptianMobile(Astro.params.phone ?? '');
 if (!phone) return Astro.redirect('/admin/patients');
 
@@ -26,9 +28,9 @@ const paid = history.reduce((sum, visit) => sum + visit.paid, 0);
 const saved = Astro.url.searchParams.has('saved');
 ---
 
-<Admin title={name} subtitle="ملف المريض">
+<Admin title={name} subtitle={`ملف ${w.client}`}>
   <Fragment slot="actions">
-    <a class="btn btn--sm btn--ghost" href="/admin/patients">كل المرضى</a>
+    <a class="btn btn--sm btn--ghost" href="/admin/patients">كل {w.clients}</a>
     <a class="btn btn--sm ltr" href={`tel:${phone}`}><Icon name="phone" />{phone}</a>
     <a class="btn btn--sm btn--soft" href={`https://wa.me/${whatsappNumber(phone)}`} target="_blank" rel="noopener"><Icon name="chat" />واتساب</a>
   </Fragment>
@@ -62,7 +64,7 @@ const saved = Astro.url.searchParams.has('saved');
                 <td data-label="اليوم"><a href={`/admin?date=${visit.day}`}>{formatDay(visit.day)}</a></td>
                 <td data-label="الساعة">{formatMinute(visit.start_minute)}</td>
                 <td data-label="الزيارة">{visit.service_name}</td>
-                <td data-label="الحالة"><span class="badge" data-status={visit.status}>{statusLabels[visit.status]}</span></td>
+                <td data-label="الحالة"><span class="badge" data-status={visit.status}>{visit.status === 'done' ? w.done : statusLabels[visit.status]}</span></td>
                 <td data-label="المدفوع">{visit.paid > 0 ? `${visit.paid} ج` : '·'}</td>
               </tr>
             ))}
@@ -72,11 +74,11 @@ const saved = Astro.url.searchParams.has('saved');
     </section>
 
     <form class="card board__side" method="post">
-      <h2 class="card__title"><Icon name="note" />ملاحظات العيادة</h2>
+      <h2 class="card__title"><Icon name="note" />ملاحظات {w.place}</h2>
       <div class="field">
-        <label class="sr-only" for="note">ملاحظات عن المريض</label>
-        <textarea id="note" name="note" rows="8" maxlength="2000" placeholder="حساسية، أدوية، تاريخ مرضي، أي حاجة تهم الدكتور...">{note}</textarea>
-        <p class="hint">الملاحظات دي للعيادة بس، المريض مش بيشوفها.</p>
+        <label class="sr-only" for="note">ملاحظات عن {w.client}</label>
+        <textarea id="note" name="note" rows="8" maxlength="2000" placeholder={w.notePlaceholder}>{note}</textarea>
+        <p class="hint">الملاحظات دي {w.toPlace} بس، {w.client} مش بيشوفها.</p>
       </div>
       <button class="btn btn--primary" type="submit">حفظ الملاحظات</button>
     </form>

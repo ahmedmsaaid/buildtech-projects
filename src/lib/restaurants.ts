@@ -6,6 +6,7 @@
 import { getAccountById, getAccountBySlug, type Account } from './accounts';
 import { newId, query } from './db';
 import { queryFor } from './tenants';
+import { takesOrders, wordsForOrdering } from './words';
 
 export interface RestaurantProfile {
   cuisine: string;
@@ -26,9 +27,9 @@ export type Restaurant = Account & RestaurantProfile;
 
 const PROFILE_COLUMNS = 'cuisine, address, phone, whatsapp, about, map_url, hours_note, tables_count, accepts_orders, allows_pickup, prep_minutes';
 
-/** Joins an account with its restaurant profile, which is kept with the restaurant's other records. Null when the account is not a restaurant. */
+/** Joins an account with its restaurant profile, which is kept with the restaurant's other records. Null when the account's product does not take orders. */
 async function asRestaurant(account: Account | null): Promise<Restaurant | null> {
-  if (account?.product !== 'restaurant') return null;
+  if (!account || !takesOrders(account.product)) return null;
   const [profile] = await queryFor<RestaurantProfile>(account.id, `select ${PROFILE_COLUMNS} from restaurants where id = $1`, [account.id]);
   return profile ? { ...account, ...profile } : null;
 }
@@ -46,9 +47,9 @@ export async function getRestaurantById(id: string): Promise<Restaurant | null> 
  * menu category to fill in. Called by the platform when an account of this
  * product is created.
  */
-export async function setUpRestaurant(accountId: string, profile: { cuisine: string; phone: string }): Promise<void> {
+export async function setUpRestaurant(accountId: string, product: string, profile: { cuisine: string; phone: string }): Promise<void> {
   await queryFor(accountId, 'insert into restaurants (id, cuisine, phone, whatsapp) values ($1, $2, $3, $3)', [accountId, profile.cuisine, profile.phone]);
-  await addCategory(accountId, 'الأطباق الرئيسية');
+  await addCategory(accountId, wordsForOrdering(product).firstCategory);
 }
 
 /** What a restaurant edits in its own settings: its name and its whole profile. */

@@ -15,7 +15,7 @@ const OPEN_MINUTE = 1020;
 const SLOT_MINUTES = 20;
 const SLOTS_PER_DAY = 15;
 
-const services: [name: string, price: number][] = [
+const clinicServices: [name: string, price: number][] = [
   ['كشف', 400],
   ['استشارة', 150],
   ['متابعة تحاليل', 200],
@@ -36,7 +36,8 @@ const people: [name: string, phone: string][] = [
   ['دينا شريف', '01223456789'],
 ];
 
-const menu: [category: string, items: [name: string, description: string, price: number][]][] = [
+const menu: [category: string, items: [name: string, description: string, price: number][]][] = [];
+const restaurantMenu: typeof menu = [
   [
     'مشويات',
     [
@@ -82,8 +83,56 @@ function pick(seed: number, size: number): number {
 /** What a demo clinic and a demo restaurant are called, used when their accounts are created. */
 export const demoNames = {
   clinic: { name: 'عيادة النور', contact: 'د. أحمد سامي' },
+  barber: { name: 'صالون الأسطى', contact: 'الأسطى كريم' },
   restaurant: { name: 'مشويات الحاتي', contact: 'أ. محمود الحاتي' },
+  cafe: { name: 'كافيه روقان', contact: 'أ. يوسف منير' },
 } as const;
+
+/** What a barbershop offers, in place of a clinic's kinds of visit. */
+export const barberServices: [name: string, price: number][] = [
+  ['حلاقة شعر', 100],
+  ['حلاقة دقن', 60],
+  ['شعر ودقن', 150],
+  ['حلاقة أطفال', 80],
+];
+
+const cafeMenu: typeof menu = [
+  [
+    'قهوة',
+    [
+      ['إسبريسو', 'شوت دوبل', 45],
+      ['كابتشينو', '', 65],
+      ['لاتيه', 'ساده أو بنكهة الفانيليا أو الكراميل', 70],
+      ['قهوة تركي', 'على الرملة', 35],
+      ['سبانيش لاتيه', '', 85],
+    ],
+  ],
+  [
+    'مشروبات باردة',
+    [
+      ['آيس لاتيه', '', 75],
+      ['آيس موكا', '', 85],
+      ['موهيتو', 'ليمون ونعناع، أو فراولة', 60],
+      ['عصير مانجو', '', 55],
+    ],
+  ],
+  [
+    'حلويات',
+    [
+      ['تشيز كيك', 'لوتس أو توت', 90],
+      ['براونيز', 'مع بولة آيس كريم', 80],
+      ['وافل', 'نوتيلا وموز', 95],
+    ],
+  ],
+  [
+    'سندوتشات',
+    [
+      ['كلوب ساندوتش', 'فراخ وجبنة وبيض', 120],
+      ['توست جبنة مشوي', '', 70],
+      ['كرواسون ديك رومي', '', 85],
+    ],
+  ],
+];
 
 /**
  * Makes an existing account a clinic with evening hours, three services,
@@ -94,8 +143,18 @@ export async function fillClinic(
   run: Run,
   accountId: string,
   today: string,
-  profile: { doctor: string; specialty: string; about?: string; withVisits?: boolean },
+  profile: {
+    doctor: string;
+    specialty: string;
+    about?: string;
+    withVisits?: boolean;
+    /** What can be booked. A clinic's kinds of visit when left out. */
+    offers?: [name: string, price: number][];
+    /** The private note kept on the first client. */
+    note?: string;
+  },
 ): Promise<void> {
+  const services = profile.offers ?? clinicServices;
   await run(
     `insert into clinics (id, specialty, doctor_name, address, phone, whatsapp, slot_minutes, about)
      values ($1, $2, $3, '12 شارع التحرير، الدقي، الجيزة', '01000000000', '01000000000', $4, $5)`,
@@ -163,17 +222,20 @@ export async function fillClinic(
   await run('insert into patient_notes (clinic_id, patient_phone, note) values ($1, $2, $3)', [
     accountId,
     people[0][1],
-    'حساسية من البنسلين. بتتابع ارتجاع المريء، آخر منظار سليم.',
+    profile.note ?? 'حساسية من البنسلين. بتتابع ارتجاع المريء، آخر منظار سليم.',
   ]);
 }
 
-/** Makes an existing account a restaurant with a full menu and two weeks of orders, some in the kitchen right now. */
-export async function fillRestaurant(run: Run, accountId: string, today: string): Promise<void> {
+/** Makes an existing account a restaurant, or a café, with a full menu and two weeks of orders, some being made right now. */
+export async function fillRestaurant(run: Run, accountId: string, today: string, kind: 'restaurant' | 'cafe' = 'restaurant'): Promise<void> {
+  const isCafe = kind === 'cafe';
+  const menu = isCafe ? cafeMenu : restaurantMenu;
   await run(
-    `insert into restaurants (id, cuisine, address, phone, whatsapp, about, hours_note, tables_count)
-     values ($1, 'مشويات وطواجن', '45 شارع جامعة الدول، المهندسين', '01000000000', '01000000000',
-       'مشويات على الفحم وطواجن بلدي من سنة 1998. كل حاجة بتتعمل وقت الطلب.', 'يومياً من 12 الضهر لـ 1 بالليل', 12)`,
-    [accountId],
+    `insert into restaurants (id, cuisine, address, phone, whatsapp, about, hours_note, tables_count, prep_minutes)
+     values ($1, $2, '45 شارع جامعة الدول، المهندسين', '01000000000', '01000000000', $3, $4, 12, $5)`,
+    isCafe
+      ? [accountId, 'قهوة مختصة وحلويات', 'قهوة محمّصة طازة وحلويات بتتعمل كل يوم. مكان هادي للشغل والقعدة.', 'يومياً من 9 الصبح لـ 2 بالليل', 10]
+      : [accountId, 'مشويات وطواجن', 'مشويات على الفحم وطواجن بلدي من سنة 1998. كل حاجة بتتعمل وقت الطلب.', 'يومياً من 12 الضهر لـ 1 بالليل', 20],
   );
 
   const dishes: { id: string; name: string; price: number }[] = [];

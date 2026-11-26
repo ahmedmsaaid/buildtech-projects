@@ -6,6 +6,7 @@
 import { getAccountById, getAccountBySlug, type Account } from './accounts';
 import { newId, query } from './db';
 import { queryFor } from './tenants';
+import { takesBookings, wordsForBooking } from './words';
 
 export interface ClinicProfile {
   specialty: string;
@@ -25,9 +26,9 @@ export type Clinic = Account & ClinicProfile;
 
 const PROFILE_COLUMNS = 'specialty, doctor_name, address, phone, whatsapp, about, map_url, slot_minutes, booking_days, cancel_hours';
 
-/** Joins an account with its clinic profile, which is kept with the clinic's other records. Null when the account is not a clinic. */
+/** Joins an account with its clinic profile, which is kept with the clinic's other records. Null when the account's product does not take bookings. */
 async function asClinic(account: Account | null): Promise<Clinic | null> {
-  if (account?.product !== 'clinic') return null;
+  if (!account || !takesBookings(account.product)) return null;
   const [profile] = await queryFor<ClinicProfile>(account.id, `select ${PROFILE_COLUMNS} from clinics where id = $1`, [account.id]);
   return profile ? { ...account, ...profile } : null;
 }
@@ -60,19 +61,22 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
  * six days, and one kind of visit. The clinic then adjusts all of it in its
  * own settings. Called by the platform when an account of this product is created.
  */
-export async function setUpClinic(accountId: string, profile: { doctorName: string; specialty: string; phone: string }): Promise<void> {
-  await queryFor(accountId, 'insert into clinics (id, doctor_name, specialty, phone, whatsapp) values ($1, $2, $3, $4, $4)', [
+export async function setUpClinic(accountId: string, product: string, profile: { doctorName: string; specialty: string; phone: string }): Promise<void> {
+  // A barbershop does not start with a clinic's hours or its twenty-minute visits.
+  const start = wordsForBooking(product);
+  await queryFor(accountId, 'insert into clinics (id, doctor_name, specialty, phone, whatsapp, slot_minutes) values ($1, $2, $3, $4, $4, $5)', [
     accountId,
     profile.doctorName,
     profile.specialty,
     profile.phone,
+    start.slotMinutes,
   ]);
 
-  // Saturday to Thursday, 5 to 10 in the evening.
+  // Saturday to Thursday, at the hours this kind of business usually keeps.
   for (let weekday = 0; weekday < 7; weekday++) {
-    await saveWorkingDay(accountId, { weekday, is_open: weekday !== 5, open_minute: 1020, close_minute: 1320 });
+    await saveWorkingDay(accountId, { weekday, is_open: weekday !== 5, open_minute: start.openMinute, close_minute: start.closeMinute });
   }
-  await addService(accountId, 'كشف', 0);
+  await addService(accountId, start.firstService, 0);
 }
 
 /** All seven days, Sunday first. Days never saved come back as closed. */
@@ -171,7 +175,7 @@ export async function removeClosedDay(clinicId: string, day: string): Promise<vo
 }
 
 /** How much a clinic is being used, for the platform owner. */
-export async function getClinicUsage(clinicId: string, since: string): Promise<{ label: string; value: string }[]> {
+export async function getClinicUsage(clinicId: string, since: string, product: string): Promise<{ label: string; value: string }[]> {
   const [usage] = await queryFor<{ bookings: number; online: number; patients: number }>(clinicId, 
     `select
        count(*) filter (where day >= $2 and status <> 'cancelled')::int as bookings,
@@ -183,7 +187,7 @@ export async function getClinicUsage(clinicId: string, since: string): Promise<{
   const onlineShare = usage.bookings === 0 ? 0 : Math.round((usage.online / usage.bookings) * 100);
   return [
     { label: 'حجز في 30 يوم', value: String(usage.bookings) },
-    { label: 'مريض', value: String(usage.patients) },
+    { label: wordsForBooking(product).client1, value: String(usage.patients) },
     { label: 'حجز أونلاين', value: `${onlineShare}%` },
   ];
 }

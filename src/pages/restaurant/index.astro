@@ -3,6 +3,7 @@
  * The kitchen's live board: today's orders in three columns, each moved to
  * the next stage with one press. The page reloads by itself so new orders appear.
  */
+import { wordsForOrdering } from '../../lib/words';
 import Icon from '../../components/Icon.astro';
 import Restaurant from '../../layouts/Restaurant.astro';
 import { getOrdersOn, nextStatus, orderStatuses, orderStatusLabels, setOrderStatus, type Order, type OrderStatus } from '../../lib/orders';
@@ -10,6 +11,7 @@ import { formatDay, formatMoment, nowIn } from '../../lib/time';
 import { text } from '../../lib/validate';
 
 const { restaurant } = Astro.locals;
+const w = wordsForOrdering(restaurant.product);
 const today = nowIn(restaurant.timezone).day;
 
 if (Astro.request.method === 'POST') {
@@ -45,7 +47,7 @@ const timeOf = (order: Order) => formatMoment(order.created_at, restaurant.timez
 
   <div class="stats">
     <p class="stat"><span class="stat__icon"><Icon name="note" /></span><span><strong>{orders.length - inStage('cancelled').length}</strong><span>طلب</span></span></p>
-    <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{inStage('new').length + inStage('preparing').length}</strong><span>في المطبخ</span></span></p>
+    <p class="stat"><span class="stat__icon" data-tone="warn"><Icon name="hourglass" /></span><span><strong>{inStage('new').length + inStage('preparing').length}</strong><span>في {w.kitchen}</span></span></p>
     <p class="stat"><span class="stat__icon" data-tone="ok"><Icon name="check" /></span><span><strong>{inStage('done').length}</strong><span>اتسلّم</span></span></p>
     <p class="stat"><span class="stat__icon"><Icon name="wallet" /></span><span><strong>{revenue}</strong><span>مبيعات اليوم (ج)</span></span></p>
   </div>
