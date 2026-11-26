@@ -86,19 +86,31 @@ const steps = [
 
       {
         banners.length > 0 && (
-          <section class="lp__banners" aria-label="عروض وأخبار">
-            {banners.map((banner) => (
-              <article class="lp__banner">
-                {banner.image_id && <img src={`/media/${banner.image_id}`} alt="" loading="lazy" />}
-                <div class="lp__bannertext">
-                  <h2>{banner.title}</h2>
-                  {banner.body && <p class="lp__muted">{banner.body}</p>}
-                  {banner.link_label && safeLink(banner.link_url) && (
-                    <a class="lp__btn lp__btn--main" href={safeLink(banner.link_url)} rel="noopener">{banner.link_label}</a>
-                  )}
+          <section class="lp__banners" aria-label="عروض وأخبار" aria-roledescription="carousel" data-carousel>
+            {/* One banner fills the row; the rest wait to the side and roll in, by swipe or by themselves. */}
+            <div class="lp__track" data-track>
+              {banners.map((banner, index) => (
+                <article class="lp__banner" data-with-image={banner.image_id ? '' : undefined} aria-label={`${index + 1} من ${banners.length}`}>
+                  {banner.image_id && <img src={`/media/${banner.image_id}`} alt="" loading={index === 0 ? 'eager' : 'lazy'} />}
+                  <div class="lp__bannertext">
+                    <h2>{banner.title}</h2>
+                    {banner.body && <p class="lp__muted">{banner.body}</p>}
+                    {banner.link_label && safeLink(banner.link_url) && (
+                      <a class="lp__btn lp__btn--main" href={safeLink(banner.link_url)} rel="noopener">{banner.link_label}</a>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+            {
+              banners.length > 1 && (
+                <div class="lp__dots">
+                  {banners.map((banner, index) => (
+                    <button class="lp__dot" type="button" data-dot={index} aria-label={`اعرض: ${banner.title}`} aria-current={index === 0 ? 'true' : undefined} />
+                  ))}
                 </div>
-              </article>
-            ))}
+              )
+            }
           </section>
         )
       }
@@ -185,6 +197,62 @@ const steps = [
     </footer>
   </div>
 </Base>
+
+<script>
+  /**
+   * The banners' row: rolls to the next banner by itself, and keeps the dots
+   * in step with whichever banner is showing. Without this script the row
+   * still scrolls by swipe and stops on each banner.
+   */
+  const ROLL_EVERY_MS = 5500;
+
+  for (const carousel of document.querySelectorAll<HTMLElement>('[data-carousel]')) {
+    const track = carousel.querySelector<HTMLElement>('[data-track]');
+    const slides = track ? [...track.children].filter((child): child is HTMLElement => child instanceof HTMLElement) : [];
+    const dots = [...carousel.querySelectorAll<HTMLButtonElement>('[data-dot]')];
+    if (!track || slides.length < 2) continue;
+
+    let showing = 0;
+
+    // Scrolls the row only, so the page itself never jumps to the banners.
+    const show = (index: number) => {
+      const slide = slides[(index + slides.length) % slides.length];
+      track.scrollTo({ left: slide.offsetLeft - (track.clientWidth - slide.offsetWidth) / 2, behavior: 'smooth' });
+    };
+
+    // Whichever banner fills the row is the one showing, however it got there.
+    const watcher = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          showing = slides.indexOf(entry.target as HTMLElement);
+          dots.forEach((dot, index) => (index === showing ? dot.setAttribute('aria-current', 'true') : dot.removeAttribute('aria-current')));
+        }
+      },
+      { root: track, threshold: 0.6 },
+    );
+    slides.forEach((slide) => watcher.observe(slide));
+
+    dots.forEach((dot, index) => dot.addEventListener('click', () => show(index)));
+
+    // It rolls by itself unless someone is reading it, using it, or asked for less motion.
+    let held = false;
+    const hold = () => (held = true);
+    const release = () => (held = false);
+    carousel.addEventListener('pointerenter', hold);
+    carousel.addEventListener('pointerleave', release);
+    carousel.addEventListener('focusin', hold);
+    carousel.addEventListener('focusout', release);
+    carousel.addEventListener('touchstart', hold, { passive: true });
+    carousel.addEventListener('touchend', () => setTimeout(release, 4000), { passive: true });
+
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setInterval(() => {
+        if (!held && !document.hidden) show(showing + 1);
+      }, ROLL_EVERY_MS);
+    }
+  }
+</script>
 
 <style is:global>
   /* The landing page is dark edge to edge, unlike customer pages. */
@@ -323,25 +391,78 @@ const steps = [
 
   .lp__banners {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: 1rem;
+    gap: 0.75rem;
     padding-block-end: clamp(1rem, 0.5rem + 2vw, 2rem);
+  }
+
+  /* The banners sit in one row and only one shows; the row scrolls sideways and stops on each banner. */
+  .lp__track {
+    position: relative;
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    border-radius: 0.75rem;
+  }
+
+  .lp__track::-webkit-scrollbar {
+    display: none;
   }
 
   .lp__banner {
     display: grid;
+    flex: 0 0 100%;
     grid-template-columns: minmax(0, 1fr);
     overflow: hidden;
     border: 1px solid var(--green);
     border-radius: 0.75rem;
     background: var(--panel);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
   }
 
+  /* The whole picture shows, never a cropped strip of it. */
   .lp__banner img {
     width: 100%;
     height: 100%;
-    max-height: 14rem;
+    aspect-ratio: 16 / 9;
     object-fit: cover;
+  }
+
+  .lp__dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  /* A small dot inside a finger-sized button. */
+  .lp__dot {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .lp__dot::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--edge);
+    transition:
+      width 250ms,
+      background 250ms;
+  }
+
+  .lp__dot[aria-current='true']::before {
+    width: 1.5rem;
+    background: var(--green);
   }
 
   .lp__bannertext {
@@ -547,9 +668,9 @@ const steps = [
   }
 
   @media (min-width: 48rem) {
-    /* A lone banner with a picture lays it beside the words. */
-    .lp__banner:only-child:has(img) {
-      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    /* With room to spare, the picture sits beside the words. */
+    .lp__banner[data-with-image] {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     }
   }
 
