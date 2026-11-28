@@ -1,0 +1,162 @@
+---
+/**
+ * Where a link from outside lands to try a product, e.g. /try/clinic.
+ * Opening it starts nothing: a demo is made only when the visitor presses
+ * the button, so a crawler or a link preview can never create one.
+ */
+import Base from '../../layouts/Base.astro';
+import { isDemoProduct } from '../../lib/demo';
+import { products } from '../../lib/products';
+
+const key = Astro.params.product ?? '';
+// Demos are BuildTech's offer; a customer's own address has only that customer on it.
+if (Astro.locals.hostAccount || !isDemoProduct(key) || !products[key]) return Astro.redirect('/login');
+const product = products[key];
+---
+
+<Base title={`جرّب ${product.customers} · BuildTech`} accent="#19c37d" isPrivate>
+  <main class="start">
+    <a class="start__logo" href="/" aria-label="BuildTech">
+      <svg viewBox="0 0 64 64" width="40" height="40" aria-hidden="true">
+        <path d="M32 17v-6" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"></path>
+        <circle cx="32" cy="8.5" r="4" fill="#19c37d"></circle>
+        <path fill-rule="evenodd" fill="#fff" d="M21 17h22a13 13 0 0 1 13 13v16a13 13 0 0 1-13 13H21a13 13 0 0 1-13-13V30a13 13 0 0 1 13-13zM21 24h22a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H21a7 7 0 0 1-7-7V31a7 7 0 0 1 7-7z"></path>
+        <path d="M21 31l7 6.5-7 6.5" stroke="#19c37d" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M32 44h11" stroke="#19c37d" stroke-width="4.5" fill="none" stroke-linecap="round"></path>
+      </svg>
+      <span dir="ltr">Build<span>Tech</span></span>
+    </a>
+
+    <section class="start__card" aria-labelledby="start-title">
+      <p class="start__eyebrow" dir="ltr">&gt; try_it</p>
+      <h1 id="start-title">جرّب نظام <span>{product.customers}</span></h1>
+      <ul>
+        <li>من غير تسجيل ولا بيانات</li>
+        <li>نسخة كاملة فيها بيانات تجريبية</li>
+        <li>بتاعتك لوحدك، وبتتمسح بعد 24 ساعة</li>
+      </ul>
+      <form method="post" action="/try">
+        <input type="hidden" name="product" value={product.key} />
+        <button class="start__btn" type="submit">ابدأ التجربة</button>
+      </form>
+      <p class="start__dim">عندك حساب؟ <a href="/login">سجّل دخولك</a></p>
+    </section>
+  </main>
+</Base>
+
+<style is:global>
+  /* Dark edge to edge, like the home page. */
+  body:has(.start) {
+    background: #101314;
+  }
+</style>
+
+<style>
+  .start {
+    --green: #19c37d;
+    --dim: #a3aba6;
+
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 2rem;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    color: #f3f6f4;
+    /* The faint grid of the BuildTech brand. */
+    background-image:
+      linear-gradient(rgb(243 246 244 / 4%) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(243 246 244 / 4%) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .start__logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: #ffffff;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+
+  .start__logo span span,
+  .start h1 span {
+    color: var(--green);
+  }
+
+  .start__card {
+    display: grid;
+    gap: 1.25rem;
+    width: min(100%, 26rem);
+    padding: 2rem 1.75rem;
+    border: 1px solid #2c3335;
+    border-radius: 0.875rem;
+    background: #181c1d;
+  }
+
+  .start__eyebrow {
+    margin: 0;
+    color: var(--green);
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.875rem;
+    text-align: end;
+  }
+
+  .start h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    line-height: 1.3;
+  }
+
+  .start ul {
+    display: grid;
+    gap: 0.625rem;
+    margin: 0;
+    padding: 0;
+    color: var(--dim);
+    list-style: none;
+  }
+
+  .start li {
+    display: flex;
+    gap: 0.625rem;
+  }
+
+  .start li::before {
+    content: '>';
+    color: var(--green);
+    font-family: Consolas, 'Courier New', monospace;
+    font-weight: 700;
+  }
+
+  /* Dark text on green: white on this green is too faint to read. */
+  .start__btn {
+    width: 100%;
+    min-height: 3rem;
+    border: 1px solid var(--green);
+    border-radius: 0.5rem;
+    background: var(--green);
+    color: #101314;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .start__btn:focus-visible {
+    outline: 3px solid rgb(25 195 125 / 55%);
+    outline-offset: 3px;
+  }
+
+  .start__dim {
+    margin: 0;
+    color: var(--dim);
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  .start__dim a {
+    color: #f3f6f4;
+  }
+</style>
